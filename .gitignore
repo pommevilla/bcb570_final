@@ -11,6 +11,9 @@
 # Session Data files
 .RData
 
+# Ignore data file
+data/
+
 # Example code in package build process
 *-Ex.R
 
