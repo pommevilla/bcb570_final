@@ -43,8 +43,6 @@ This function isn't working right now. Will revisit later.
 ```{r}
 grn.matrix <- function(experiment_data, gene_col, sample_cols){
   library(GENIE3)
-  
-  grn.matrix(proteomics, "gene", c(8:16))
 
   expression_data <- experiment_data %>%
     column_to_rownames(var = gene_col) %>%
@@ -66,16 +64,7 @@ metabolomics <- read.delim("./data/Metabolomics2.txt")
 
 ### Building GRN
 
-```{r}
-metabolomics.expr <- metabolomics %>% 
-  column_to_rownames(var = "Metabolite") %>% 
-  select()
-```
-
-```{r}
-metabolomics.mat <- grn.matrix(metabolomics, "Metabolite", 3:9)
-```
-
+Can't build it right now since there are duplicate row names.
 
 
 # Proteomics
@@ -92,7 +81,7 @@ expr <- proteomics %>%
   select(7:12) %>% 
   as.matrix()
 
-proteomics.mat <- GENIE3(proteomics.expr)
+proteomics.mat <- GENIE3(expr)
 ```
 
 
@@ -104,16 +93,18 @@ transcriptomics <- read.delim("./data/Transcriptomics2.txt")
 
 ### Building GRN
 
+Takes a long time to run. Will run on HPC.
+
 ```{r}
-expr <- transcriptomics %>% 
+# expr <- transcriptomics %>% 
   column_to_rownames(var = "Unique_ID") %>% 
   select(8:13) %>% 
   as.matrix()
 
-transcriptomics.mat <- GENIE3(proteomics.expr)
+# transcriptomics.mat <- GENIE3(expr)
 ```
 
-### Reading in network
+### Reading in network from GENIE3 adjaceny matrices.
 
 ```{r}
 transcriptomics.network <- graph_from_adjacency_matrix(transcriptomics.mat)
