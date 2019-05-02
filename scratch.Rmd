@@ -21,40 +21,6 @@ library(GENIE3)
 theme_set(theme_light())
 ```
 
-# Helper functions
-
-```{r}
-grn.heatmap <- function(dist_mat){
-  library(reshape2)
-  
-  p <- ggplot(data = melt(dist_mat), aes(x = Var1, y = Var2, fill = value)) +
-    geom_tile(color = "gray") + coord_equal() +
-    scale_fill_gradient2(low = "white", high = 'steelblue') +
-    theme(axis.text.x = element_text(angle = 90, hjust = 1),
-          panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
-          panel.border = element_blank(), axis.ticks = element_blank())
-  
-  return(p)
-}
-```
-
-This function isn't working right now. Will revisit later.
-
-```{r}
-grn.matrix <- function(experiment_data, gene_col, sample_cols){
-  library(GENIE3)
-
-  expression_data <- experiment_data %>%
-    column_to_rownames(var = gene_col) %>%
-    select(sample_cols - 1) %>%
-    as.matrix() 
-  
-  distmat <- GENIE3(expression_data)
-
-  return(distmat)
-}
-```
-
 
 # Metabolomics data
 
@@ -62,28 +28,13 @@ grn.matrix <- function(experiment_data, gene_col, sample_cols){
 metabolomics <- read.delim("./data/Metabolomics2.txt")
 ```
 
-### Building GRN
-
-Can't build it right now since there are duplicate row names.
-
-
 # Proteomics
 
 ```{r}
 proteomics <- read.delim("./data/Proteomics2.txt")
 ```
 
-### Building GRN
-
-```{r}
-expr <- proteomics %>% 
-  column_to_rownames(var = "gene") %>% 
-  select(7:12) %>% 
-  as.matrix()
-
-proteomics.mat <- GENIE3(expr)
-```
-
+To do: calculating correlations.
 
 #  Transcriptomics
 
@@ -93,21 +44,28 @@ transcriptomics <- read.delim("./data/Transcriptomics2.txt")
 
 ### Building GRN
 
-Takes a long time to run. Will run on HPC.
+I ran GENIE3 several times for different combinations of samples:
+
+1. PHOTOTROPH1 - PHOTOTROPH3
+2. H1 - H3
+3. L1 - L3
+4. H1 - H3, L1 - L3
+5. PHOTOTROPH1 - PHOTOTROPH3, H1 - H3, L1 - L3
+
+I saved the resulting matrices in (unzipped) data/grn_mats/transcriptomics. The name corresponds to the columns I considered. You can read them in with:
 
 ```{r}
-# expr <- transcriptomics %>% 
-  column_to_rownames(var = "Unique_ID") %>% 
-  select(8:13) %>% 
-  as.matrix()
-
-# transcriptomics.mat <- GENIE3(expr)
+H1_H2_H3.distmat <- readRDS("./data/grn_mats/transcriptomics/t_H1-H2-H3.rds")
 ```
 
-### Reading in network from GENIE3 adjaceny matrices.
+And from there, you can make a network by doing:
 
 ```{r}
-transcriptomics.network <- graph_from_adjacency_matrix(transcriptomics.mat)
+H1_H2_H3.network <- graph_from_adjacency_matrix(H1_H2_H3.distmat)
+```
+
+```{r}
+plot(H1_H2_H3.network)
 ```
 
 
