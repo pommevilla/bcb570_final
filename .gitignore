@@ -8,6 +8,9 @@
 # Mac only file - not needed by other systems
 .DS_Store
 
+# EDA
+EDA.Rmd
+
 # Session Data files
 .RData
 
