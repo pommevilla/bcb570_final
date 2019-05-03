@@ -11,6 +11,9 @@
 # EDA
 EDA.Rmd
 
+# Mac files
+__MACOSX
+
 # Session Data files
 .RData
 
