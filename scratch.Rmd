@@ -25,13 +25,13 @@ theme_set(theme_light())
 # Metabolomics data
 
 ```{r}
-metabolomics <- read.delim("./data/Metabolomics2.txt")
+metabolomics <- read.delim("./data/raw/Metabolomics2.txt")
 ```
 
 # Proteomics
 
 ```{r}
-proteomics <- read.delim("./data/Proteomics2.txt")
+proteomics <- read.delim("./data/raw/Proteomics2.txt")
 ```
 
 To do: calculating correlations.
@@ -39,7 +39,7 @@ To do: calculating correlations.
 #  Transcriptomics
 
 ```{r}
-transcriptomics <- read.delim("./data/Transcriptomics2.txt")
+transcriptomics <- read.delim("./data/raw/Transcriptomics2.txt")
 ```
 
 ### Building GRN
