@@ -17,7 +17,11 @@ library(ggplot2)
 library(igraph)
 library(reshape2)
 library(scales)
+install.packages("tidyverse")
 library(tidyverse)
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+BiocManager::install("GENIE3")
 library(GENIE3)
 
 theme_set(theme_light())
@@ -25,7 +29,9 @@ theme_set(theme_light())
 
 # Helper functions
 
+Generates a bootstrap distribution after B iterations of permuting the observed proteomic data. Due to the size of the network we want to only look at a significant interations. Most of the time this is an arbitrary value, but we can permute the columns of the data and generate a distribution of the correlations in order to more precisely choose are cut off. 
 
+boostrap_cor simulates the distrbution of the correlations.
 
 ```{r}
 bootstrap_cor <- function(dat.observed, B = 1000) {
@@ -58,6 +64,7 @@ bootstrap_cor <- function(dat.observed, B = 1000) {
 }
 ```
 
+boostrap_qualtiles takes the distribution of the simulated data and sets the cut offs at 2.5% and 97.5% of the distribution. 
 ```{r}
 bootstrap_quantiles <- function(boots) {
   boots[, prop := counts/sum(counts)]
@@ -70,6 +77,8 @@ bootstrap_quantiles <- function(boots) {
   return(quantiles)
 }
 ```
+
+Take the correlation matrix with the cut offs and thresholds the values. If the correlation is above the upper quantile then the correlation is set to 1. If the correlation is below the lower quantile then the correlation is set to -1. If the correlation falls between these two quantiles, then the value is set to 0. 
 
 ```{r}
 threshold_cor_matrix <- function(cor.matrix, quantiles){
@@ -85,19 +94,20 @@ threshold_cor_matrix <- function(cor.matrix, quantiles){
 
 
 # Metabolomics data
-
+Reads in the metabolic data as a dataframe. 
 ```{r}
 metabolomics <- read.delim("./data/raw/Metabolomics2.txt")
 ```
 
 # Proteomics
-
+Reads in the proteomics data as a dataframe.
 ```{r}
 proteomics <- read.delim("./data/raw/Proteomics2.txt")
 ```
 
 
 ## Calculating correlations.
+Pulls proteomics and creates a seperate dataframe using just the UNIQID and the H and L expression data.
 
 ```{r}
 proteomics.expr <- proteomics %>% 
@@ -106,12 +116,13 @@ proteomics.expr <- proteomics %>%
   t()
 ```
 
+This will calculate the correlation of the expression dataframe. 
 ```{r}
 proteomics.cor <- cor(proteomics.expr)
 ```
 
 Visualization:
-
+Heat map of the protein-protein correlation matrix.
 ```{r}
 ggplot(melt(proteomics.cor), aes(x = Var1, y = Var2, fill = value)) +
   geom_tile() +
@@ -124,14 +135,14 @@ ggplot(melt(proteomics.cor), aes(x = Var1, y = Var2, fill = value)) +
 ```
 
 
-
+Bootstrapping protein interactions to get qualtiles and thresholds. 
 ```{r}
 proteomics.expr.boots <- bootstrap_cor(proteomics.expr, B = 20)
 proteomics.quantiles <- bootstrap_quantiles(proteomics.expr.boots)
+
 ```
 
-
-
+Visualizing the distribution of the bootstrapped protein-protein correlation. 
 ```{r}
 ggplot(proteomics.expr.boots, aes(x = c_score, y = counts)) + 
   geom_col() + 
@@ -161,7 +172,7 @@ ggplot(melt(t), aes(x = Var1, y = Var2, fill = value)) +
 
 
 #  Transcriptomics
-
+Read in transcriptomics data.
 ```{r}
 transcriptomics <- read.delim("./data/raw/Transcriptomics2.txt")
 ```
