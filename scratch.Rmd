@@ -10,6 +10,8 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r}
+library(data.table)
+library(doParallel)
 library(dplyr)
 library(ggplot2)
 library(igraph)
@@ -19,6 +21,66 @@ library(tidyverse)
 library(GENIE3)
 
 theme_set(theme_light())
+```
+
+# Helper functions
+
+
+
+```{r}
+bootstrap_cor <- function(dat.observed, B = 1000) {
+  
+  library(data.table)
+
+  # dat.observed = proteomics.expr
+  
+  n <- ncol(dat.observed)
+  
+  boots = data.table(c_score = numeric(), counts = numeric())
+    
+    
+    
+  for (i in 1:B){
+  dat.perm <- data.table(dat.observed[, sample(n, n, replace = TRUE)])
+  
+  cor.perm <- data.table(c(round(cor(dat.perm), 3)))
+  cor.perm[, counts := .N, by = .(V1)]
+  cor.perm <- unique(cor.perm)
+  
+  boots <- rbindlist(list(boots, cor.perm))[, lapply(.SD, sum, na.rm = TRUE), 
+                                            by = .(c_score)]
+
+  }
+
+  boots <- boots %>% arrange(-c_score) %>% data.table()
+
+  return(boots)
+}
+```
+
+```{r}
+bootstrap_quantiles <- function(boots) {
+  boots[, prop := counts/sum(counts)]
+  
+  quantiles <- boots[, list(
+    upper = c_score[sum(cumsum(prop) <= 0.025)],
+    lower = c_score[sum(cumsum(prop) <= 0.975)]
+  )]
+  
+  return(quantiles)
+}
+```
+
+```{r}
+threshold_cor_matrix <- function(cor.matrix, quantiles){
+  
+  cor.matrix[cor.matrix > proteomics.quantiles$upper] <- 1
+  cor.matrix[cor.matrix < proteomics.quantiles$lower] <- -1
+  cor.matrix[cor.matrix < proteomics.quantiles$upper & cor.matrix > proteomics.quantiles$lower] <- 0
+  
+  return(cor.matrix)
+
+}
 ```
 
 
@@ -34,7 +96,69 @@ metabolomics <- read.delim("./data/raw/Metabolomics2.txt")
 proteomics <- read.delim("./data/raw/Proteomics2.txt")
 ```
 
-To do: calculating correlations.
+
+## Calculating correlations.
+
+```{r}
+proteomics.expr <- proteomics %>% 
+  column_to_rownames(var = "UNIQID") %>% 
+  select(7:12) %>% 
+  t()
+```
+
+```{r}
+proteomics.cor <- cor(proteomics.expr)
+```
+
+Visualization:
+
+```{r}
+ggplot(melt(proteomics.cor), aes(x = Var1, y = Var2, fill = value)) +
+  geom_tile() +
+  coord_equal() +
+  labs(x = "", y = "", title = "Protein-protein interactions",
+       subtitle = "Measured by Pearson correlation") + 
+  scale_fill_gradient2(low = "red", mid = "black", high = "steelblue") + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, size = 2),
+        axis.text.y = element_text(size = 2))
+```
+
+
+
+```{r}
+proteomics.expr.boots <- bootstrap_cor(proteomics.expr, B = 20)
+proteomics.quantiles <- bootstrap_quantiles(proteomics.expr.boots)
+```
+
+
+
+```{r}
+ggplot(proteomics.expr.boots, aes(x = c_score, y = counts)) + 
+  geom_col() + 
+  scale_y_continuous(limits = c(0, max(proteomics.expr.boots$counts))) + 
+  labs(x = "Pearson correlation", y = "Counts",
+       title = "Simulated correlation values",
+       subtitle = "2.5% thresholds indicated") +
+  geom_vline(xintercept = c(proteomics.quantiles$lower, proteomics.quantiles$upper), color = "#BB0000", linetype = 'dashed')
+```
+ 
+
+Updated heatmap showing only the significant correlations
+
+```{r}
+t <- threshold_cor_matrix(proteomics.cor, quantiles)
+ggplot(melt(t), aes(x = Var1, y = Var2, fill = value)) +
+  geom_tile() +
+  coord_equal() +
+  labs(x = "", y = "", title = "Significant protein-protein interactions",
+       subtitle = "Measured by Pearson correlation") + 
+  scale_fill_gradient2(low = "red", mid = "black", high = "steelblue") + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, size = 2),
+        axis.text.y = element_text(size = 2),
+        axis.ticks = element_blank())
+```
+
+
 
 #  Transcriptomics
 
