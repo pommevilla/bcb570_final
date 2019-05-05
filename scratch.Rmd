@@ -94,19 +94,24 @@ threshold_cor_matrix <- function(cor.matrix, quantiles){
 
 
 # Metabolomics data
+
 Reads in the metabolic data as a dataframe. 
+
 ```{r}
 metabolomics <- read.delim("./data/raw/Metabolomics2.txt")
 ```
 
 # Proteomics
+
 Reads in the proteomics data as a dataframe.
+
 ```{r}
 proteomics <- read.delim("./data/raw/Proteomics2.txt")
 ```
 
 
 ## Calculating correlations.
+
 Pulls proteomics and creates a seperate dataframe using just the UNIQID and the H and L expression data.
 
 ```{r}
@@ -117,12 +122,15 @@ proteomics.expr <- proteomics %>%
 ```
 
 This will calculate the correlation of the expression dataframe. 
+
 ```{r}
 proteomics.cor <- cor(proteomics.expr)
 ```
 
-Visualization:
+### Visualization
+
 Heat map of the protein-protein correlation matrix.
+
 ```{r}
 ggplot(melt(proteomics.cor), aes(x = Var1, y = Var2, fill = value)) +
   geom_tile() +
@@ -136,6 +144,7 @@ ggplot(melt(proteomics.cor), aes(x = Var1, y = Var2, fill = value)) +
 
 
 Bootstrapping protein interactions to get qualtiles and thresholds. 
+
 ```{r}
 proteomics.expr.boots <- bootstrap_cor(proteomics.expr, B = 20)
 proteomics.quantiles <- bootstrap_quantiles(proteomics.expr.boots)
@@ -143,6 +152,7 @@ proteomics.quantiles <- bootstrap_quantiles(proteomics.expr.boots)
 ```
 
 Visualizing the distribution of the bootstrapped protein-protein correlation. 
+
 ```{r}
 ggplot(proteomics.expr.boots, aes(x = c_score, y = counts)) + 
   geom_col() + 
@@ -170,9 +180,59 @@ ggplot(melt(t), aes(x = Var1, y = Var2, fill = value)) +
 ```
 
 
+Set the diagonal to 0 so that they don't get graphed in the network (`diag = FALSE` argument isn't working in `graph_from_adjaceny_matrix` for some reason).
+
+```{r}
+diag(proteomics.cor) <- 0
+proteomics.cor <- proteomics.cor %>% 
+  melt() %>% 
+  filter(value != 0)
+```
+
+This writes out the protein-protein interaction network for use with Cytoscape.
+
+```{r}
+write.csv(proteomics.cor, "proteomics_network.csv", quote = FALSE,
+          row.names = FALSE)
+```
+
+Creates a protein-protein interaction graph from the (modified) correlation matrix, changes the size to be proportional to the degree of the node, and creates a separate attribute for the betweenness of the node.
+
+```{r}
+
+proteomics.g <- graph_from_adjacency_matrix(proteomics.cor, diag = TRUE,
+                                            # weighted = TRUE, mode = "undirected"
+                                            )
+proteomics.g <- delete_vertices(proteomics.g, 
+                                V(proteomics.g)[degree(proteomics.g) == 0])
+V(proteomics.g)$size = degree(proteomics.g)
+V(proteomics.g)$btwn <- betweenness(proteomics.g)
+```
+
+Plotting the graph. Mess around with it as you like. 
+
+```{r}
+fine = 500 
+pal = colorRampPalette(c('white','red'))
+
+graphCol = pal(fine)[as.numeric(cut(V(proteomics.g)$btwn, breaks = fine))]
+
+
+plot(proteomics.g,
+     vertex.label = NA,
+     vertex.size = 5,
+     layout = layout_with_fr(proteomics.g),
+     edge.arrow.size = 0.1,
+     vertex.color = graphCol,
+     # edge.color = ifelse(E(proteomics.g)$weight == 1, 'green', 'red'),
+     )
+```
+
 
 #  Transcriptomics
+
 Read in transcriptomics data.
+
 ```{r}
 transcriptomics <- read.delim("./data/raw/Transcriptomics2.txt")
 ```
