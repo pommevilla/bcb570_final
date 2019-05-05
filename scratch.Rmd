@@ -180,7 +180,7 @@ Set the diagonal to 0 so that they don't get graphed in the network (`diag = FAL
 
 ```{r}
 diag(proteomics.cor) <- 0
-proteomics.cor <- proteomics.cor %>% 
+temp <- proteomics.cor %>% 
   melt() %>% 
   filter(value != 0)
 ```
@@ -188,7 +188,7 @@ proteomics.cor <- proteomics.cor %>%
 This writes out the protein-protein interaction network for use with Cytoscape.
 
 ```{r}
-write.csv(proteomics.cor, "./data/grn_mats/proteomics_network.csv", quote = FALSE,
+write.csv(temp, "./data/grn_mats/proteomics_network.csv", quote = FALSE,
           row.names = FALSE)
 ```
 
@@ -196,7 +196,7 @@ Creates a protein-protein interaction graph from the (modified) correlation matr
 
 ```{r}
 
-proteomics.g <- graph_from_adjacency_matrix(proteomics.cor, diag = TRUE,
+proteomics.g <- graph_from_adjacency_matrix(proteomics.cor, diag = FALSE
                                             # weighted = TRUE, mode = "undirected"
                                             )
 proteomics.g <- delete_vertices(proteomics.g, 
