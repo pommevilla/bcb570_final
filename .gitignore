@@ -8,6 +8,9 @@
 # Mac only file - not needed by other systems
 .DS_Store
 
+# Scratch folder
+my_work
+
 # EDA
 EDA.Rmd
 
