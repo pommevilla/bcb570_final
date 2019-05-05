@@ -34,6 +34,18 @@ metabolomics <- read.delim("./data/Metabolomics2.txt")
 proteomics <- read.delim("./data/Proteomics2.txt")
 ```
 
+```{r}
+proteomics.expr  <- proteomics %>% 
+	 column_to_rownames(var = "UNIQID") %>% 
+	 select(7:15) %>% 
+	 as.matrix()
+```
+
+```{r}
+proteomics.cor <- cor(t(proteomics.expr))
+```
+
+
 To do: calculating correlations.
 
 #  Transcriptomics
