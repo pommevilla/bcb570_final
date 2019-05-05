@@ -8,6 +8,9 @@
 # Mac only file - not needed by other systems
 .DS_Store
 
+# Ignore local work
+my_work
+
 # EDA
 EDA.Rmd
 
