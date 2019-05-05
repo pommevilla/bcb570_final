@@ -192,7 +192,7 @@ proteomics.cor <- proteomics.cor %>%
 This writes out the protein-protein interaction network for use with Cytoscape.
 
 ```{r}
-write.csv(proteomics.cor, "proteomics_network.csv", quote = FALSE,
+write.csv(proteomics.cor, "./data/grn_mats/proteomics_network.csv", quote = FALSE,
           row.names = FALSE)
 ```
 
