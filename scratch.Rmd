@@ -163,8 +163,8 @@ ggplot(proteomics.expr.boots, aes(x = c_score, y = counts)) +
 Updated heatmap showing only the significant correlations
 
 ```{r}
-t <- threshold_cor_matrix(proteomics.cor, quantiles)
-ggplot(melt(t), aes(x = Var1, y = Var2, fill = value)) +
+proteomics.cor <- threshold_cor_matrix(proteomics.cor, quantiles)
+ggplot(melt(proteomics.cor), aes(x = Var1, y = Var2, fill = value)) +
   geom_tile() +
   coord_equal() +
   labs(x = "", y = "", title = "Significant protein-protein interactions",
