@@ -22,8 +22,9 @@ library(mixOmics)
 setwd("D:/Documents/BoxSync/Classes/BCB570/final\ project/my_work/")
 theme_set(theme_light())
 ```
+# PCA Analysis
 
-## Read in Data Sets
+### Read in Data Sets
 
 Reads in the proteomics, metabolomics, and transcriptomics data as dataframes.
 
@@ -33,7 +34,7 @@ metabolomics<-read.delim("./data/raw/Metabolomics2.txt")
 transcriptomics<-read.delim("./data/raw/Transcriptomics2.txt")
 ```
 
-## PCA of just proteome
+### PCA of just proteome
 ```{r}
 prot_genotypes<-t(proteomics[8:16])
 colnames(prot_genotypes)<-proteomics$UNIQID
@@ -52,7 +53,7 @@ plotIndiv(pca.proteome, comp = c(1,2), group = groups$genotypes,
 
 ```
 
-## PCA of just transcriptome
+### PCA of just transcriptome
 When you attempt to run the pca on the transcriptome alone, there is an error due to none of the genotypes expressing that gene (aka that column is filled with just zeros).
 ```{r}
 trans_genotypes<-t(transcriptomics[6:14])
@@ -65,13 +66,13 @@ title(main="transcriptomics PCA Plot")
 ```
 
 
-Attempt to merge transcriptome and proteome data
+### Merging data
 ```{r}
 proteome_transcriptome<-merge(proteomics, transcriptomics, by.y="Unique_ID", by.x = "UNIQID")
 prot_met_trans<-merge(proteome_transcriptome,metabolomics,by.x = "Pathway", by.y="Pathway", all.x = FALSE)
 ```
 
-#Attempt at PCA of combined proteomics and transcriptomics data
+### Attempt at PCA of combined proteomics and transcriptomics data
 ```{r}
 proteome_transcriptome[8:16]
 prot_tran_genotypes<-t(cbind(proteome_transcriptome[8:16],proteome_transcriptome[21:29]))
@@ -93,7 +94,7 @@ plotIndiv(pca.proteome_transcriptome, comp = c(1,2), group = groups$genotypes,
           legend = TRUE, title = 'Proteome and Transcriptome, PCA comp 1 - 2')
 ```
 
-## PCA of proteomic, transcripmtomic, and metabolomic data
+### PCA of proteomic, transcripmtomic, and metabolomic data
 ```{r}
 prot_tran_met_genotypes<-t(cbind(prot_met_trans[9:17],prot_met_trans[21:29],prot_met_trans[31:41]))
 pca.proteome_transcriptome_metabolome <- pca(prot_tran_met_genotypes, ncomp = 10, center = TRUE, scale = TRUE)
@@ -101,7 +102,7 @@ pca.proteome_transcriptome_metabolome <- pca(prot_tran_met_genotypes, ncomp = 10
 pca.proteome_transcriptome_metabolome
 
 plot(pca.proteome_transcriptome_metabolome)
-title(main="Protein, Transcriptomic,Metabolomic PCA Plot")
+title(main="Proteomic,Transcriptomic,Metabolomic PCA Plot")
 ```
 
 ```{r}
@@ -110,6 +111,56 @@ length(groups$genotypes)
 rownames(prot_tran_met_genotypes)
 plotIndiv(pca.proteome_transcriptome_metabolome, comp = c(1,2), group = groups$genotypes,
           ind.names = rownames(prot_tran_met_genotypes),
-          legend = TRUE, title = 'Proteome and Transcriptome, PCA comp 1 - 2')
+          legend = TRUE, title = 'Proteome,Transcriptome, Metabolome, PCA comp 1 - 2')
+```
+
+# sPLS Analysis
+```{r}
+prot_trans.pls <- pls( prot_genotypes,trans_genotypes, ncomp = 6, mode = "regression")
+prot_trans.spls <- spls( prot_genotypes,trans_genotypes, ncomp =6, keepX = c(20,20,20), keepY= c(10,10,10), mode = "regression")
+tune.pls <- perf(prot_trans.pls, validation = "Mfold", folds = 6, progressBar = FALSE, nrepeat = 50)
+tune.spls <- perf(prot_trans.spls, validation = "Mfold", folds = 6, progressBar = FALSE, nrepeat = 50)
+
+plot(tune.pls$Q2.total)
+abline(h = 0.0975)
+
+plot(tune.spls$Q2.total)
+abline(h = 0.0975)
+tune.pls$Q2.total
+tune.spls$Q2.total
+
+
+```
+### Sample plots
+```{r}
+par(mfrow = c(1,3))
+groups<-data.frame(genotypes=c("Histidine mutant", "Histidine mutant","Histidine mutant","Leucine mutant","Leucine mutant","Leucine mutant","WT","WT","WT") ,replicates=c("H1","H2","H3","L1","L2","L3","PROTOTROPH1","PROTOTROPH2","PROTOTROPH3"))
+
+plotIndiv(prot_trans.spls, comp = 1:2, rep.space= 'Y-variate', group = groups$genotypes,
+          ind.names = genotype$replicates,
+          legend = TRUE, title = 'Proteome and Transcriptome, sPLS comp 1 - 2, Y-space')
+
+
+par(mfrow = c(1,3))
+
+```
+
+```{r}
+plotIndiv(prot_trans.spls, comp = 1:2, rep.space= 'X-variate', group = groups$genotypes,
+          ind.names = groups$replicates,
+          legend = TRUE, title = 'Liver, sPLS comp 1 - 2, X-space')
+
+plotIndiv(prot_trans.spls, comp = 1:2, rep.space= 'XY-variate', group = groups$genotypes,
+          ind.names = groups$replicates,
+          legend = TRUE, title = 'Liver, sPLS comp 1 - 2, XY-space')
+```
+
+```{r}
+
+plotVar(prot_trans.spls, comp =1:2, 
+        var.names = list(X.label = proteomics$UNIQID, 
+                         Y.label = TRUE), cex = c(4, 5))
+  color.edge <- color.GreenRed(50) 
+
 ```
 
