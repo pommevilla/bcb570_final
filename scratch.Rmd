@@ -14,7 +14,9 @@ library(data.table)
 library(doParallel)
 library(dplyr)
 library(ggplot2)
+library(grid)
 library(igraph)
+library(NetRep)
 library(reshape2)
 library(scales)
 library(tidyverse)
@@ -30,27 +32,78 @@ Generates a bootstrap distribution after B iterations of permuting the observed 
 boostrap_cor simulates the distrbution of the correlations.
 
 ```{r}
-bootstrap_cor <- function(dat.observed, B = 1000) {
+write.cor_to_edgelist <- function(cor_matrix, fout){
+  cor_matrix %>% 
+    melt() %>% 
+    filter(value != 0) %>% 
+    write.csv(fout, quote = FALSE, row.names = FALSE)
+}
+```
+
+```{r}
+get_expr_data <- function(prot, treats, genes){
+    e.data <- prot %>% 
+      column_to_rownames(var = genes) %>% 
+      select(treats - 1) %>% 
+      t()
+    
+    return(e.data)
+}
+```
+
+
+```{r}
+plot_cor_heatmap <- function(cor_matrix, triangle = FALSE){
+
+  sig_count <- cor_matrix %>% 
+    melt() %>% 
+    filter(value != 0) %>% 
+    count()
+  
+  if (triangle == TRUE) {
+    cor_matrix[upper.tri(cor_matrix)] <- NA
+  }
+
+  
+  p <- ggplot(na.omit(melt(cor_matrix)), aes(x = Var1, y = Var2, fill = value)) +
+    geom_tile() +
+    coord_equal() +
+    labs(x = "", y = "", fill = "Correlation") + 
+    scale_fill_gradient2(low = "red", mid = "black", high = "steelblue", space = "Lab", 
+                         breaks = c(-1, 0, 1), labels = c(-1, 0, 1),
+                         limits = c(-1, 1)) + 
+    labs(subtitle = paste0("# Interactions: ", sig_count)) +
+    theme(axis.text = element_blank(),
+          axis.ticks = element_blank(),
+          panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+          panel.border = element_blank(), panel.background = element_blank())
+  return(p)
+}
+```
+
+
+```{r}
+bootstrap_cor <- function(prot, treats, genes = "UNIQID", B = 1000, method = "pearson") {
   
   library(data.table)
+  
+  dat.observed <- prot %>% 
+    column_to_rownames(var = genes) %>% 
+    select(treats - 1) %>% 
+    t()
 
-  # dat.observed = proteomics.expr
-  
   n <- ncol(dat.observed)
-  
   boots = data.table(c_score = numeric(), counts = numeric())
     
-    
-    
   for (i in 1:B){
-  dat.perm <- data.table(dat.observed[, sample(n, n, replace = TRUE)])
-  
-  cor.perm <- data.table(c(round(cor(dat.perm), 3)))
-  cor.perm[, counts := .N, by = .(V1)]
-  cor.perm <- unique(cor.perm)
-  
-  boots <- rbindlist(list(boots, cor.perm))[, lapply(.SD, sum, na.rm = TRUE), 
-                                            by = .(c_score)]
+    dat.perm <- data.table(dat.observed[, sample(n, n, replace = TRUE)])
+    
+    cor.perm <- data.table(c(round(cor(dat.perm, method = method), 3)))
+    cor.perm[, counts := .N, by = .(V1)]
+    cor.perm <- unique(cor.perm)
+    
+    boots <- rbindlist(list(boots, cor.perm))[, lapply(.SD, sum, na.rm = TRUE), 
+                                              by = .(c_score)]
 
   }
 
@@ -62,12 +115,12 @@ bootstrap_cor <- function(dat.observed, B = 1000) {
 
 boostrap_qualtiles takes the distribution of the simulated data and sets the cut offs at 2.5% and 97.5% of the distribution. 
 ```{r}
-bootstrap_quantiles <- function(boots) {
+bootstrap_quantiles <- function(boots, p) {
   boots[, prop := counts/sum(counts)]
   
   quantiles <- boots[, list(
-    upper = c_score[sum(cumsum(prop) <= 0.025)],
-    lower = c_score[sum(cumsum(prop) <= 0.975)]
+    upper = c_score[sum(cumsum(prop) <= (p / 2))],
+    lower = c_score[sum(cumsum(prop) <= (1 - (p / 2)))]
   )]
   
   return(quantiles)
@@ -79,22 +132,59 @@ Take the correlation matrix with the cut offs and thresholds the values. If the 
 ```{r}
 threshold_cor_matrix <- function(cor.matrix, quantiles){
   
-  cor.matrix[cor.matrix > proteomics.quantiles$upper] <- 1
-  cor.matrix[cor.matrix < proteomics.quantiles$lower] <- -1
-  cor.matrix[cor.matrix < proteomics.quantiles$upper & cor.matrix > proteomics.quantiles$lower] <- 0
+  cor.matrix[cor.matrix >= quantiles$upper] <- 1
+  cor.matrix[cor.matrix <= quantiles$lower] <- -1
+  cor.matrix[cor.matrix < quantiles$upper & cor.matrix > quantiles$lower] <- 0
+  
+  # Additionally set the diagonal to 0.
+  diag(cor.matrix) <- 0
   
   return(cor.matrix)
 
 }
 ```
 
+```{r}
+prepare_network <- function(network) {
+  network <- delete_vertices(network, 
+                                V(network)[degree(network) == 0])
+  V(network)$size = degree(network)
+  V(network)$btwn <- betweenness(network, weights = rep(1, length = length(E(network))))
+  
+  return(network)
+}
+```
 
-# Metabolomics data
-
-Reads in the metabolic data as a dataframe. 
 
 ```{r}
-metabolomics <- read.delim("./data/raw/Metabolomics2.txt")
+get_treatment_cor <- function(prot, treats, genes = "UNIQID", method = "pearson"){
+  # e.data <- prot %>% 
+  #   column_to_rownames(var = genes) %>% 
+  #   select(treats - 1) %>% 
+  #   t()
+  
+  e.data <- get_expr_data(prot, treats, genes)
+  
+  cor.data <- cor(e.data, method = method)
+  
+  return(cor.data)
+}
+```
+
+
+```{r}
+plot_bootstrap <- function(boots, quantiles) {
+  ggplot(boots, aes(x = c_score, y = counts)) + 
+  geom_col() + 
+  scale_y_continuous(limits = c(0, max(boots$counts))) + 
+  labs(x = "Pearson correlation", y = "Counts",
+       title = "Simulated correlation values (1000 iterations)") +
+  geom_vline(xintercept = c(quantiles$lower, quantiles$upper), color = "#BB0000", linetype = 'dashed') +
+  geom_text(aes(x = quantiles$lower , label = paste(quantiles$lower), y = max(boots$counts) * 0.75), 
+            colour = "#BB0000", size = 3, nudge_x = 0.05) + 
+  geom_text(aes(x = quantiles$upper , label = paste(quantiles$upper), y = max(boots$counts) * 0.75), 
+            colour = "#BB0000", size = 3, nudge_x = -0.05)
+}
 ```
 
 # Proteomics
@@ -106,163 +196,371 @@ proteomics <- read.delim("./data/raw/Proteomics2.txt")
 ```
 
 
-## Calculating correlations.
+## H1-H3
 
 Pulls proteomics and creates a seperate dataframe using just the UNIQID and the H and L expression data.
 
 ```{r}
-proteomics.expr <- proteomics %>% 
-  column_to_rownames(var = "UNIQID") %>% 
-  select(7:12) %>% 
-  t()
+H1_H3.treatment_cols <- 8:10
+H1_H3.cor <- get_treatment_cor(proteomics, H1_H3.treatment_cols)
 ```
 
-This will calculate the correlation of the expression dataframe. 
-
 ```{r}
-proteomics.cor <- cor(proteomics.expr)
-```
-
-### Visualization
-
-Heat map of the protein-protein correlation matrix.
-
-```{r}
-ggplot(melt(proteomics.cor), aes(x = Var1, y = Var2, fill = value)) +
-  geom_tile() +
-  coord_equal() +
-  labs(x = "", y = "", title = "Protein-protein interactions",
-       subtitle = "Measured by Pearson correlation") + 
-  scale_fill_gradient2(low = "red", mid = "black", high = "steelblue") + 
-  theme(axis.text.x = element_text(angle = 90, hjust = 1, size = 2),
-        axis.text.y = element_text(size = 2))
+plot_cor_heatmap(H1_H3.cor, triangle = TRUE) + 
+  labs(title = "Protein-protein interactions: Histidine mutants")
 ```
 
 
 Bootstrapping protein interactions to get qualtiles and thresholds. 
 
 ```{r}
-proteomics.expr.boots <- bootstrap_cor(proteomics.expr, B = 20)
-proteomics.quantiles <- bootstrap_quantiles(proteomics.expr.boots)
-
+H1_H3.boots <- bootstrap_cor(proteomics, treats = H1_H3.treatment_cols, B = 100)
+H1_H3.quantiles <- bootstrap_quantiles(H1_H3.boots, 0.10)
 ```
 
 Visualizing the distribution of the bootstrapped protein-protein correlation. 
 
 ```{r}
-ggplot(proteomics.expr.boots, aes(x = c_score, y = counts)) + 
-  geom_col() + 
-  scale_y_continuous(limits = c(0, max(proteomics.expr.boots$counts))) + 
-  labs(x = "Pearson correlation", y = "Counts",
-       title = "Simulated correlation values",
-       subtitle = "2.5% thresholds indicated") +
-  geom_vline(xintercept = c(proteomics.quantiles$lower, proteomics.quantiles$upper), color = "#BB0000", linetype = 'dashed')
+plot_bootstrap(H1_H3.boots, H1_H3.quantiles)
+```
+
+Updated heatmap showing only the significant correlations
+
+```{r}
+H1_H3.cor <- threshold_cor_matrix(H1_H3.cor, H1_H3.quantiles)
+
+plot_cor_heatmap(H1_H3.cor, triangle = TRUE) + 
+  labs(title = "Protein-protein interactions: Histidine mutants")
+```
+
+Set the diagonal to 0 so that they don't get graphed in the network (`diag = FALSE` argument isn't working in `graph_from_adjaceny_matrix` for some reason).
+
+```{r}
+write.cor_to_edgelist(H1_H3.cor, "./data/grn_mats/prot_network.H.csv")
+```
+
+Creates a protein-protein interaction graph from the (modified) correlation matrix, removes nodes of degree 0, changes the size of each node to be proportional to its degree, and creates a separate attribute for the betweenness of the node.
+
+
+
+
+## Leucine mutant
+
+```{r}
+L1_L3.treatment_cols <- 11:13
+L1_L3.cor <- get_treatment_cor(proteomics, L1_L3.treatment_cols)
+```
+
+```{r}
+plot_cor_heatmap(L1_L3.cor, triangle = TRUE) + 
+  labs(title = "Protein-protein interactions: Leucine mutants")
+```
+
+
+Bootstrapping protein interactions to get qualtiles and thresholds. 
+
+```{r}
+L1_L3.boots <- bootstrap_cor(proteomics, treats = L1_L3.treatment_cols, B = 100)
+L1_L3.quantiles <- bootstrap_quantiles(L1_L3.boots, 0.10)
+```
+
+Visualizing the distribution of the bootstrapped protein-protein correlation. 
+
+```{r}
+plot_bootstrap(L1_L3.boots, L1_L3.quantiles) + labs(title = "Simulated correlation histogram: Leucine mutants",
+                                                    subtitle = "n = 1000")
 ```
  
 
 Updated heatmap showing only the significant correlations
 
 ```{r}
-proteomics.cor <- threshold_cor_matrix(proteomics.cor, quantiles)
-ggplot(melt(proteomics.cor), aes(x = Var1, y = Var2, fill = value)) +
-  geom_tile() +
-  coord_equal() +
-  labs(x = "", y = "", title = "Significant protein-protein interactions",
-       subtitle = "Measured by Pearson correlation") + 
-  scale_fill_gradient2(low = "red", mid = "black", high = "steelblue") + 
-  theme(axis.text.x = element_text(angle = 90, hjust = 1, size = 2),
-        axis.text.y = element_text(size = 2),
-        axis.ticks = element_blank())
+L1_L3.cor <- threshold_cor_matrix(L1_L3.cor, L1_L3.quantiles)
+plot_cor_heatmap(L1_L3.cor, triangle = TRUE) + 
+  labs(title = "Protein-protein interactions: Leucine mutants")
+```
+This writes out the protein-protein interaction network for use with Cytoscape.
+
+```{r}
+write.cor_to_edgelist(L1_L3.cor, "./data/grn_mats/prot_network.L.csv")
+```
+
+## Wildtype
+
+
+```{r}
+WT.treatment_cols <- 14:16
+WT.cor <- get_treatment_cor(proteomics, WT.treatment_cols)
+```
+
+```{r}
+plot_cor_heatmap(WT.cor, triangle = TRUE) + 
+  labs(title = "Protein-protein interactions: Wild-type")
 ```
 
 
-Set the diagonal to 0 so that they don't get graphed in the network (`diag = FALSE` argument isn't working in `graph_from_adjaceny_matrix` for some reason).
+Bootstrapping protein interactions to get qualtiles and thresholds. 
 
 ```{r}
-diag(proteomics.cor) <- 0
-temp <- proteomics.cor %>% 
-  melt() %>% 
-  filter(value != 0)
+WT.boots <- bootstrap_cor(proteomics, treats = WT.treatment_cols, B = 100)
+WT.quantiles <- bootstrap_quantiles(WT.boots, 0.10)
+```
+
+Visualizing the distribution of the bootstrapped protein-protein correlation. 
+
+```{r}
+plot_bootstrap(WT.boots, WT.quantiles)
+```
+ 
+
+Updated heatmap showing only the significant correlations
+
+```{r}
+WT.cor <- threshold_cor_matrix(WT.cor, WT.quantiles)
+
+plot_cor_heatmap(WT.cor, triangle = TRUE) + 
+  labs(title = "Protein-protein interactions: Wild-type")
+```
+
+```{r}
+write.cor_to_edgelist(WT.cor, "./data/grn_mats/prot_network.WT.csv")
+```
+
+Creates a protein-protein interaction graph from the (modified) correlation matrix, removes nodes of degree 0, changes the size of each node to be proportional to its degree, and creates a separate attribute for the betweenness of the node.
+
+
+# All together
+
+
+```{r}
+all.treatment_cols <- 8:16
+all.cor <- get_treatment_cor(proteomics, all.treatment_cols)
+```
+
+```{r}
+plot_cor_heatmap(all.cor, triangle = TRUE) + 
+  labs(title = "Protein-protein interactions: All genotypes")
+```
+
+
+Bootstrapping protein interactions to get qualtiles and thresholds. 
+
+```{r}
+all.boots <- bootstrap_cor(proteomics, treats = all.treatment_cols, B = 100, method = "pearson")
+all.quantiles <- bootstrap_quantiles(all.boots, 0.10)
+```
+
+Visualizing the distribution of the bootstrapped protein-protein correlation. 
+
+```{r}
+plot_bootstrap(all.boots, all.quantiles) + 
+  labs(title = "Simulated correlation histogram: All genotypes",
+                                                    subtitle = "n = 1000")
+```
+ 
+
+Updated heatmap showing only the significant correlations
+
+```{r}
+all.cor <- threshold_cor_matrix(all.cor, all.quantiles)
+plot_cor_heatmap(all.cor, triangle = TRUE) + 
+  labs(title = "Protein-protein interactions: Wild-type")
 ```
 
 This writes out the protein-protein interaction network for use with Cytoscape.
 
 ```{r}
-write.csv(temp, "./data/grn_mats/proteomics_network.csv", quote = FALSE,
-          row.names = FALSE)
+write.cor_to_edgelist(all.cor, "./data/grn_mats/prot_network.all.csv")
 ```
 
-Creates a protein-protein interaction graph from the (modified) correlation matrix, changes the size to be proportional to the degree of the node, and creates a separate attribute for the betweenness of the node.
+
+# Networks
 
 ```{r}
+WT.g <- graph_from_adjacency_matrix(WT.cor, mode = "undirected")
+WT.g <- prepare_network(WT.g)
+WT.btwn_coms <- cluster_edge_betweenness(WT.g)
 
-proteomics.g <- graph_from_adjacency_matrix(proteomics.cor, diag = FALSE
-                                            # weighted = TRUE, mode = "undirected"
-                                            )
-proteomics.g <- delete_vertices(proteomics.g, 
-                                V(proteomics.g)[degree(proteomics.g) == 0])
-V(proteomics.g)$size = degree(proteomics.g)
-V(proteomics.g)$btwn <- betweenness(proteomics.g)
+H.g <- graph_from_adjacency_matrix(H1_H3.cor, mode = "undirected")
+H.g <- prepare_network(H.g)
+H.btwn_coms <- cluster_edge_betweenness(H.g)
+
+L.g <- graph_from_adjacency_matrix(L1_L3.cor, mode = "undirected")
+L.g <- prepare_network(L.g)
+L.btwn_coms <- cluster_edge_betweenness(L.g)
 ```
 
-Plotting the graph. Mess around with it as you like. 
+Creating color palettes:
 
 ```{r}
-fine = 500 
-pal = colorRampPalette(c('white','red'))
+fine = 1000 
+pal = colorRampPalette(c('azure2','darkblue'))
 
-graphCol = pal(fine)[as.numeric(cut(V(proteomics.g)$btwn, breaks = fine))]
+graphCol = pal(fine)[as.numeric(cut(V(L.g)$btwn, breaks = fine))]
+```
 
 
-plot(proteomics.g,
+```{r}
+plot(H.btwn_coms,
+     H.g,
      vertex.label = NA,
-     vertex.size = 5,
-     layout = layout_with_fr(proteomics.g),
+     vertex.size = V(H.g)$btwn * 0.001,
+     layout = layout_nicely(H.g),
      edge.arrow.size = 0.1,
-     vertex.color = graphCol,
+     # vertex.color = graphCol,
      # edge.color = ifelse(E(proteomics.g)$weight == 1, 'green', 'red'),
      )
 ```
 
 
-#  Transcriptomics
-
-Read in transcriptomics data.
-
 ```{r}
-transcriptomics <- read.delim("./data/raw/Transcriptomics2.txt")
-```
-
-### Building GRN
-
-I ran GENIE3 several times for different combinations of samples:
-
-1. PHOTOTROPH1 - PHOTOTROPH3
-2. H1 - H3
-3. L1 - L3
-4. H1 - H3, L1 - L3
-5. PHOTOTROPH1 - PHOTOTROPH3, H1 - H3, L1 - L3
-
-I saved the resulting matrices in (unzipped) data/grn_mats/transcriptomics. The name corresponds to the columns I considered. You can read them in with:
-
-```{r}
-H1_H2_H3.distmat <- readRDS("./data/grn_mats/transcriptomics/t_H1-H2-H3.rds")
-```
-
-And from there, you can make a network by doing:
-
-```{r}
-H1_H2_H3.network <- graph_from_adjacency_matrix(H1_H2_H3.distmat)
+plot(WT.btwn_coms,
+     WT.g,
+     vertex.label = NA,
+     vertex.size = V(WT.g)$btwn * 0.0015,
+     layout = layout_in_circle(WT.g),
+     edge.arrow.size = 0.1
+     )
 ```
 
 ```{r}
-plot(H1_H2_H3.network)
+plot(L.btwn_coms,
+     L.g,
+     vertex.label = NA,
+     vertex.size = V(L.g)$btwn * 0.0015,
+     layout = layout_nicely(L.g),
+     edge.arrow.size = 0.1,
+     rescale = T
+          # vertex.color = graphCol,
+     # edge.color = ifelse(E(proteomics.g)$weight == 1, 'green', 'red'),
+     )
+```
+
+# Netrep
+
+Data required for NetRep:
+
+* An adjacency matrix whose entries indicate the strength of the relationship between nodes.
+* A matrix whose entries contain the correlation coefficient between each pair of nodes in the network.
+* A vector containing the module/group label for each node in the network for each discovery dataset.
+* Optionally, a “data matrix”, which contains the data used to calculate the correlation structure and infer the network, e.g. gene expression data.
+
+Data things needed:
+
+* `network`: a list of interaction networks, one for each dataset.
+* `data`: a list of data matrices used to infer those networks, one for each dataset.
+* `correlation`: a list of matrices containing the pairwise correlation coefficients between variables/nodes in each dataset.
+* `moduleAssignments`: a list of vectors, one for each discovery dataset, containing the module assignments for each node in that dataset.
+* `modules`: a list of vectors, one vector for each discovery dataset, containing the names of the modules from that dataset to run the function on.
+* `discovery`: a vector indicating the names or indices to use as the discovery datasets in the network, data, correlation,  moduleAssignments, and modules arguments.
+* `test`: a list of vectors, one vector for each discovery dataset, containing the names or indices of the network, data, and correlation argument lists to use as the test dataset(s) for the analysis of each discovery dataset.
+
+
+## Data prep
+
+```{r}
+dim(L1_L3.cor)
+dim(WT.cor)
+```
+
+```{r}
+# L.adj <- as.matrix(get.adjacency(L.g))
+# WT.adj <- as.matrix(get.adjacency(WT.g))
+networks = list(cohort.1 = WT.cor, 
+                cohort.2 = L1_L3.cor)
+```
+
+```{r}
+ecoli.data <- list(
+  cohort.1 = get_expr_data(proteomics, WT.treatment_cols, "UNIQID"),
+  cohort.2 = get_expr_data(proteomics, L1_L3.treatment_cols, "UNIQID")
+)
 ```
 
 
+Module assignments:
+
+```{r}
+L.module_labels <- set_names(L.btwn_coms$membership,
+                             L.btwn_coms$names)
+```
+
+```{r}
+ecoli.preservation <- modulePreservation(network = networks,
+                                         data = ecoli.data,
+                                         correlation = networks,
+                                         moduleAssignments = L.module_labels,
+                                         nPerm = 5000,
+                                         nThreads = 4)
+```
+```{r}
+sigs <- ecoli.preservation$p.values
+sigs = cbind(sigs, 
+             passes = as.numeric(rowSums(sigs < 0.05, na.rm = TRUE)),
+             fails = as.numeric(rowSums(sigs >= 0.05, na.rm = TRUE))
+             )
+sigs
+```
+
+Community 4 has the weakest evidence for preservation. We'll look at that.
+
+```{r}
+proteins_of_interest <- communities(L.btwn_coms)[c(4, 15, 17)]
+proteins_of_interest
+```
+
+```{r}
+t <- data.frame(comm = 1:23, sigs) %>% select(-fails)
+t[is.na(t)] = 1
+y.labels = c("Average node contribution", "Density of correlation structure",
+             "Concordance of node contribution", 
+             "Concordance of weighted degree", 
+             "Concordance of correlation structure", "Module coherence", "Average edge weight")
+(t.plot <- t %>% select(-passes) %>% melt(id.vars = "comm") %>% 
+  ggplot(aes(x = comm, y = variable, fill = value)) + 
+  geom_tile(color = "white") + coord_equal() + 
+  labs(x = "", y = "", fill = "p-value") + 
+  scale_y_discrete(labels = y.labels) + 
+  scale_fill_gradient(low = "steelblue", high = "gray", space = "Lab") +
+  scale_x_continuous(breaks = 1:23) +
+  theme(axis.ticks = element_blank(),
+        axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0),
+        axis.text.y = element_text(hjust = 1),
+        panel.grid = element_blank(),
+        panel.background = element_blank(),
+        panel.border = element_blank()))
 
 
+```
 
 
+```{r}
+s <- t %>% select(comm, passes) %>% 
+  mutate(evidence = ifelse(passes <= 1, 2, 1))
+ggplot(s, aes(comm, y = 1)) + 
+  geom_point(size = 5, aes(fill = factor(evidence)), color = "black",
+             pch = 21) +
+  labs(x = "", y = "Evidence") + 
+  scale_color_manual(values = c("1" = "White")) + 
+  theme(axis.ticks = element_blank(),
+        panel.grid = element_blank(),
+        axis.text = element_blank(),
+        axis.title.y = element_text(angle = 0, vjust = 0.5),
+        panel.background = element_blank(),
+        panel.border = element_blank(),
+        legend.position = "none"
+        )
+```
 
+```{r}
+layt <- grid.layout(
+  nrow = 2,
+  ncol = 1,
+  heights = c(7 / 8, 1 / 8),
+  default.units = c('null', 'null')
+  )
+
+pushViewport(viewport(layout = layt))
+print(t.plot, vp = viewport(layout.pos.row = 2))
+```
 
