@@ -20,7 +20,6 @@ library(tidyverse)
 library(GENIE3)
 library(mixOmics)
 source("./src/bcb570_utils.R")
-# setwd("D:/Documents/BoxSync/Classes/BCB570/final\ project/my_work/")
 theme_set(theme_light())
 ```
 # PCA Analysis
