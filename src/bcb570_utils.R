@@ -128,3 +128,11 @@ plot_bootstrap <- function(boots, quantiles) {
     geom_text(aes(x = quantiles$upper , label = paste(quantiles$upper), y = max(boots$counts) * 0.75),
               colour = "#BB0000", size = 3, nudge_x = -0.05)
 }
+
+scale_and_merge_prot_transc <- function(prot, trans){
+  prot <- proteomics
+  trans <- transcriptomics
+  prot[8:16] <- scale(prot[8:16])
+  trans[6:14] <- scale(trans[6:14])
+  return(merge(prot, trans, by.x = "UNIQID", by.y = "Unique_ID"))
+}
