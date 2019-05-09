@@ -19,7 +19,8 @@ library(scales)
 library(tidyverse)
 library(GENIE3)
 library(mixOmics)
-setwd("D:/Documents/BoxSync/Classes/BCB570/final\ project/my_work/")
+source("./src/bcb570_utils.R")
+# setwd("D:/Documents/BoxSync/Classes/BCB570/final\ project/my_work/")
 theme_set(theme_light())
 ```
 # PCA Analysis
@@ -35,9 +36,12 @@ transcriptomics<-read.delim("./data/raw/Transcriptomics2.txt")
 ```
 
 ### PCA of just proteome
+
+
+
 ```{r}
 prot_genotypes<-t(proteomics[8:16])
-colnames(prot_genotypes)<-proteomics$UNIQID
+colnames(prot_genotypes) <- proteomics$UNIQID
 pca.proteome <- pca(prot_genotypes, ncomp = 6, center = TRUE, scale = TRUE)
 pca.proteome
 plot(pca.proteome)
@@ -54,25 +58,35 @@ plotIndiv(pca.proteome, comp = c(1,2), group = groups$genotypes,
 ```
 
 ### PCA of just transcriptome
+
 When you attempt to run the pca on the transcriptome alone, there is an error due to none of the genotypes expressing that gene (aka that column is filled with just zeros).
-```{r}
+
+```{r, error = TRUE}
 trans_genotypes<-t(transcriptomics[6:14])
 colnames(trans_genotypes)<-transcriptomics$Unique_ID
-pca.transcriptome <- pca(trans_genotypes, ncomp = 6, center = TRUE, scale = TRUE) #Error: cannot rescale a constant/zero column to unit variance.
+trans_genotypes <- trans_genotypes[, colSums(trans_genotypes != 0) > 0]
+pca.transcriptome <- pca(trans_genotypes, ncomp = 6, center = TRUE, scale = TRUE) 
 pca.transcriptome
 
-plot(pca.transcriptome)
-title(main="transcriptomics PCA Plot")
+plot(pca.transcriptome) + title(main="transcriptomics PCA Plot")
 ```
+
+## To do:
 
 
 ### Merging data
+
+Scaling numeric data in both the proteomic and transcriptomic datasets:
+
+
 ```{r}
-proteome_transcriptome<-merge(proteomics, transcriptomics, by.y="Unique_ID", by.x = "UNIQID")
-prot_met_trans<-merge(proteome_transcriptome,metabolomics,by.x = "Pathway", by.y="Pathway", all.x = FALSE)
+proteomic.transcriptomic.merged <-scale_and_merge_prot_transc(proteomics, transcriptomics)
 ```
 
+
+
 ### Attempt at PCA of combined proteomics and transcriptomics data
+
 ```{r}
 proteome_transcriptome[8:16]
 prot_tran_genotypes<-t(cbind(proteome_transcriptome[8:16],proteome_transcriptome[21:29]))
@@ -116,16 +130,17 @@ plotIndiv(pca.proteome_transcriptome_metabolome, comp = c(1,2), group = groups$g
 
 # sPLS Analysis
 ```{r}
-prot_trans.pls <- pls( prot_genotypes,trans_genotypes, ncomp = 6, mode = "regression")
-prot_trans.spls <- spls( prot_genotypes,trans_genotypes, ncomp =6, keepX = c(20,20,20), keepY= c(10,10,10), mode = "regression")
+prot_trans.pls <- pls( prot_genotypes, trans_genotypes, ncomp = 6, mode = "regression")
+prot_trans.spls <- spls( prot_genotypes, trans_genotypes, ncomp = 6, keepX = c(20,20,20), keepY= c(10,10,10), mode = "regression")
 tune.pls <- perf(prot_trans.pls, validation = "Mfold", folds = 6, progressBar = FALSE, nrepeat = 50)
 tune.spls <- perf(prot_trans.spls, validation = "Mfold", folds = 6, progressBar = FALSE, nrepeat = 50)
 
-plot(tune.pls$Q2.total)
-abline(h = 0.0975)
 
-plot(tune.spls$Q2.total)
-abline(h = 0.0975)
+plot(tune.pls$Q2.total) + abline(h = 0.0975)
+
+
+plot(tune.spls$Q2.total) + abline(h = 0.0975)
+
 tune.pls$Q2.total
 tune.spls$Q2.total
 
@@ -136,7 +151,7 @@ tune.spls$Q2.total
 par(mfrow = c(1,3))
 groups<-data.frame(genotypes=c("Histidine mutant", "Histidine mutant","Histidine mutant","Leucine mutant","Leucine mutant","Leucine mutant","WT","WT","WT") ,replicates=c("H1","H2","H3","L1","L2","L3","PROTOTROPH1","PROTOTROPH2","PROTOTROPH3"))
 
-plotIndiv(prot_trans.spls, comp = 1:2, rep.space= 'Y-variate', group = groups$genotypes,
+plotIndiv(prot_trans.spls, comp = 5:6, rep.space= 'Y-variate', group = groups$genotypes,
           ind.names = genotype$replicates,
           legend = TRUE, title = 'Proteome and Transcriptome, sPLS comp 1 - 2, Y-space')
 
