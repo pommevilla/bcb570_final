@@ -73,6 +73,8 @@ plot(pca.transcriptome) + title(main="transcriptomics PCA Plot")
 
 ## To do:
 
+Look at loadings.
+
 
 ### Merging data
 
@@ -85,20 +87,34 @@ proteomic.transcriptomic.merged <-scale_and_merge_prot_transc(proteomics, transc
 
 
 
-### Attempt at PCA of combined proteomics and transcriptomics data
-
 ```{r}
-proteome_transcriptome[8:16]
-prot_tran_genotypes<-t(cbind(proteome_transcriptome[8:16],proteome_transcriptome[21:29]))
-colnames(prot_tran_genotypes)<-proteome_transcriptome$UNIQID
+prot_tran_genotypes<-t(cbind(proteomic.transcriptomic.merged[8:16],
+                             proteomic.transcriptomic.merged[21:29]))
+colnames(prot_tran_genotypes)<-proteomic.transcriptomic.merged$UNIQID
 pca.proteome_transcriptome <- pca(prot_tran_genotypes, ncomp = 10, center = TRUE, scale = TRUE)
 
 pca.proteome_transcriptome
 
-plot(pca.proteome_transcriptome)
-title(main="Protein and Transcriptomic PCA Plot")
+plot(pca.proteome_transcriptome) + title(main="Protein and Transcriptomic PCA Plot")
 
 ```
+
+Let's see what is in the first principal component.
+
+
+```{r}
+pca_nth_component_histogram(pca.proteome_transcriptome, 2)
+```
+
+```{r}
+pca.proteome$loadings$X
+```
+
+```{r}
+get_top_loadings(pca.proteome, 1) %>% names
+```
+
+
 
 ```{r}
 groups<-data.frame(genotypes=c("Histidine mutant", "Histidine mutant","Histidine mutant","Leucine mutant","Leucine mutant","Leucine mutant","WT","WT","WT","WT","WT","WT","Histidine mutant", "Histidine mutant","Histidine mutant","Leucine mutant","Leucine mutant","Leucine mutant") ,replicates=c("H1","H2","H3","L1","L2","L3","PROTOTROPH1","PROTOTROPH2","PROTOTROPH3"))

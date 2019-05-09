@@ -130,9 +130,29 @@ plot_bootstrap <- function(boots, quantiles) {
 }
 
 scale_and_merge_prot_transc <- function(prot, trans){
-  prot <- proteomics
-  trans <- transcriptomics
   prot[8:16] <- scale(prot[8:16])
   trans[6:14] <- scale(trans[6:14])
   return(merge(prot, trans, by.x = "UNIQID", by.y = "Unique_ID"))
+}
+
+pca_nth_component_histogram <- function(pca, n, upper.q = 0.9){
+  loadings <- pca$loadings$X
+  component_of_interest <- loadings[, n]
+  cutoff <- quantile(component_of_interest, upper.q) 
+  data.frame(val = component_of_interest) %>% 
+    ggplot(aes(val)) + 
+    geom_histogram() +
+    geom_vline(xintercept = cutoff, color = "#BB0000", linetype = 'dashed') + 
+    labs(x = "Coefficient", y = "Counts", 
+         title = "Distribution of coefficients for PCA",
+         subtitle = paste0("Component: ", as.character(substitute(n))))
+}
+
+get_top_loadings <- function(pca, component, thresh = 0.9) {
+  component_of_interest <- pca$loadings$X[, component]
+  upper.q <- quantile(component_of_interest, thresh)
+  top_loadings <- component_of_interest[component_of_interest > upper.q] %>% 
+    sort(decreasing = TRUE) 
+  
+  return(top_loadings)
 }
