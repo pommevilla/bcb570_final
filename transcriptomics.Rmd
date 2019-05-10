@@ -1,0 +1,117 @@
+---
+title: "Transcriptomics"
+author: "Paul Villanueva"
+date: "5/10/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(data.table)
+library(dplyr)
+library(ggplot2)
+library(igraph)
+library(NetRep)
+library(reshape2)
+library(scales)
+library(tidyverse)
+library(GENIE3)
+source("./src/bcb570_utils.R")
+theme_set(theme_light())
+```
+
+# Transcriptomic analysis
+
+Reading in data:
+
+```{r}
+transcriptomics <- read.delim("./data/raw/Transcriptomics2.txt")
+```
+
+Loading in pre-generated GENIE3 adjacency matrix from transcriptomic data.
+
+
+```{r}
+grn.T_H_P <- readRDS("./data/grn_mats/transcriptomics/t_PROTOTROPH1-PROTOTROPH2-PROTOTROPH3-H1-H2-H3-L1-L2-L3.rds")
+```
+
+Making a network from the top 1000 strongest connections.
+
+```{r}
+T_H_P.network <- getLinkList(grn.T_H_P, reportMax = 1000) %>% 
+  graph.data.frame()
+```
+
+Making degree distribution:
+
+```{r}
+plot_dd <- function(g){
+  g.dd <- data.frame(0:(length(degree_distribution(g)) - 1), 
+                     degree_distribution(g, cumulative = FALSE))
+  colnames(g.dd) <-c("k", "p_k")
+  ggplot(g.dd, aes(x = k, y = p_k)) + geom_bar(stat = "identity") +
+    labs(x = "Degree (k)", y = "Proportion of nodes of degree k (p(k))", title = "Degree distribution: k vs. p(k)", 
+         subtitle = paste("Graph:", deparse(substitute(g)))) +
+    theme(plot.title = element_text(hjust = 0.5), plot.subtitle = element_text(hjust = 0.5))
+}
+```
+
+
+```{r}
+plot_dd(T_H_P.network) 
+```
+
+Seeing how well it fits a power-law:
+
+```{r}
+T_H_P.pl_fit <- fit_power_law(degree(T_H_P.network))
+T_H_P.pl_fit
+```
+
+We see that the exponent of the of exponential curve describing the degree distribution is 2.8, which falls within the typical range for curves that follow a power law. The null hypothesis of the `fit-power-law` function is that the distribution is drawn from a power-law distribution, so the Kolmogorov-Smirnov p-value of 0.67 indicates there is sufficient evidence that the degree distribution of our network follows a powerlaw.
+
+```{r}
+power_law_curve <- function(x){
+  x^(-T_H_P.pl_fit$alpha)
+}
+plot_dd(T_H_P.network) +
+  stat_function(fun = power_law_curve, color = "red") + 
+  ylim(0, 0.6)
+```
+
+Writing out the names of the vertices with degree higher than 6 (arbitrary choice) for further analysis
+
+```{r}
+V(T_H_P.network)[degree(T_H_P.network) > 6] %>% 
+  names() %>% 
+  write.table(file = "transcriptomic_network_factors", row.names = FALSE, col.names = FALSE,
+              sep = "\n", quote = FALSE)
+```
+
+```{r}
+T_H_P.network <- prepare_network(T_H_P.network)
+```
+
+```{r}
+plot(T_H_P.network,
+     vertex.label = NA,
+     vertex.size = V(T_H_P.network)$btwn * 0.0015,
+     layout = layout_nicely(T_H_P.network),
+     edge.arrow.size = 0.1,
+     rescale = T
+          # vertex.color = graphCol,
+     # edge.color = ifelse(E(proteomics.g)$weight == 1, 'green', 'red'),
+     )
+```
+
+```{r}
+data.frame(val = V(T_H_P.network)$btwn) %>% 
+  ggplot(aes(val)) +
+  geom_histogram() + 
+  labs(x = "Betweenness score", y = "Counts",
+       title = "Histogram of betweenness scores for transcriptomic network")
+```
+
+
+
+
