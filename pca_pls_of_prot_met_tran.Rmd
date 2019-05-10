@@ -36,25 +36,36 @@ transcriptomics<-read.delim("./data/raw/Transcriptomics2.txt")
 
 ### PCA of just proteome
 
-
-
 ```{r}
 prot_genotypes<-t(proteomics[8:16])
 colnames(prot_genotypes) <- proteomics$UNIQID
 pca.proteome <- pca(prot_genotypes, ncomp = 6, center = TRUE, scale = TRUE)
 pca.proteome
 plot(pca.proteome)
-title(main="Protein PCA Plot")
+title(main = "PCA Plot: Proteomics")
 ```
 
 ```{r}
-groups<-data.frame(genotypes=c("Histidine mutant", "Histidine mutant","Histidine mutant","Leucine mutant","Leucine mutant","Leucine mutant","WT","WT","WT"),replicates=c("H1","H2","H3","L1","L2","L3","PROTOTROPH1","PROTOTROPH2","PROTOTROPH3"))
+groups<-data.frame(genotypes=c("Histidine mutant", "Histidine mutant","Histidine mutant","Leucine mutant","Leucine mutant","Leucine mutant","WT","WT","WT"),
+                   replicates=c("H1","H2","H3","L1","L2","L3","PROTOTROPH1","PROTOTROPH2","PROTOTROPH3")
+                   )
 
-plotIndiv(pca.proteome, comp = c(1,2), group = groups$genotypes,
+plotIndiv(pca.proteome, comp = c(1, 2), group = groups$genotypes,
           ind.names = groups$replicates,
-          legend = TRUE, title = 'Proteome, PCA comp 1 - 2')
+          legend = TRUE, title = 'Proteome, PCA comp 1 - 2') 
 
 ```
+
+What genes are in the first principal component?
+
+```{r}
+pca_nth_component_histogram(pca.proteome, 1) 
+```
+
+```{r}
+names(get_top_loadings(pca.proteome, 1))
+```
+
 
 ### PCA of just transcriptome
 
@@ -67,12 +78,14 @@ trans_genotypes <- trans_genotypes[, colSums(trans_genotypes != 0) > 0]
 pca.transcriptome <- pca(trans_genotypes, ncomp = 6, center = TRUE, scale = TRUE) 
 pca.transcriptome
 
-plot(pca.transcriptome) + title(main="transcriptomics PCA Plot")
+plot(pca.transcriptome) + title(main="PCA Plot: Transcriptomics")
 ```
 
-## To do:
-
-Look at loadings.
+```{r}
+names(get_top_loadings(pca.transcriptome, 1)) %>% 
+  write.table(file = "test", row.names = FALSE, col.names = FALSE,
+              sep = "\n", quote = FALSE)
+```
 
 
 ### Merging data
@@ -102,11 +115,7 @@ Let's see what is in the first principal component.
 
 
 ```{r}
-pca_nth_component_histogram(pca.proteome_transcriptome, 2)
-```
-
-```{r}
-pca.proteome$loadings$X
+pca_nth_component_histogram(pca.proteome_transcriptome, 1)
 ```
 
 ```{r}
@@ -118,10 +127,17 @@ get_top_loadings(pca.proteome, 1) %>% names
 ```{r}
 groups<-data.frame(genotypes=c("Histidine mutant", "Histidine mutant","Histidine mutant","Leucine mutant","Leucine mutant","Leucine mutant","WT","WT","WT","WT","WT","WT","Histidine mutant", "Histidine mutant","Histidine mutant","Leucine mutant","Leucine mutant","Leucine mutant") ,replicates=c("H1","H2","H3","L1","L2","L3","PROTOTROPH1","PROTOTROPH2","PROTOTROPH3"))
 
+plotIndiv(pca.proteome_transcriptome, comp = c(2,3), group = groups$genotypes,
+          ind.names = rownames(prot_tran_genotypes),
+          legend = TRUE, title = 'Proteome and Transcriptome, PCA comp 2 - 3')
+```
+
+```{r}
 plotIndiv(pca.proteome_transcriptome, comp = c(1,2), group = groups$genotypes,
           ind.names = rownames(prot_tran_genotypes),
-          legend = TRUE, title = 'Proteome and Transcriptome, PCA comp 1 - 2')
+          legend = TRUE, title = 'Proteome and Transcriptome, PCA comp 2 - 3')
 ```
+
 
 ### PCA of proteomic, transcripmtomic, and metabolomic data
 ```{r}

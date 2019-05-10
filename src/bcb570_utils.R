@@ -8,7 +8,7 @@ write.cor_to_edgelist <- function(cor_matrix, fout){
 get_expr_data <- function(prot, treats, genes){
   e.data <- prot %>%
     column_to_rownames(var = genes) %>%
-    select(treats - 1) %>%
+    dplyr::select(treats - 1) %>%
     t()
 
   return(e.data)
@@ -47,7 +47,7 @@ bootstrap_cor <- function(prot, treats, genes = "UNIQID", B = 1000, method = "pe
 
   dat.observed <- prot %>%
     column_to_rownames(var = genes) %>%
-    select(treats - 1) %>%
+    dplyr::select(treats - 1) %>%
     t()
 
   n <- ncol(dat.observed)
@@ -106,7 +106,7 @@ prepare_network <- function(network) {
 get_treatment_cor <- function(prot, treats, genes = "UNIQID", method = "pearson"){
   # e.data <- prot %>%
   #   column_to_rownames(var = genes) %>%
-  #   select(treats - 1) %>%
+    # dplyr::select(treats - 1) %>%
   #   t()
 
   e.data <- get_expr_data(prot, treats, genes)
@@ -135,23 +135,23 @@ scale_and_merge_prot_transc <- function(prot, trans){
   return(merge(prot, trans, by.x = "UNIQID", by.y = "Unique_ID"))
 }
 
-pca_nth_component_histogram <- function(pca, n, upper.q = 0.9){
+pca_nth_component_histogram <- function(pca, n, thresh = c(0.05, 0.95)){
   loadings <- pca$loadings$X
   component_of_interest <- loadings[, n]
-  cutoff <- quantile(component_of_interest, upper.q) 
-  data.frame(val = component_of_interest) %>% 
-    ggplot(aes(val)) + 
+  qs <- quantile(component_of_interest, thresh)
+  data.frame(val = component_of_interest) %>%
+    ggplot(aes(val)) +
     geom_histogram() +
-    geom_vline(xintercept = cutoff, color = "#BB0000", linetype = 'dashed') + 
-    labs(x = "Coefficient", y = "Counts", 
-         title = "Distribution of coefficients for PCA",
-         subtitle = paste0("Component: ", as.character(substitute(n))))
+    geom_vline(xintercept = qs, color = "#BB0000", linetype = 'dashed') +
+    labs(x = "Coefficient", y = "Counts",
+         title = paste0("Distribution of coefficients for principal component: ", as.character(substitute(n))))
 }
 
-get_top_loadings <- function(pca, component, thresh = 0.9) {
+get_top_loadings <- function(pca, component, thresh = c(0.05, 0.95)) {
   component_of_interest <- pca$loadings$X[, component]
-  upper.q <- quantile(component_of_interest, thresh)
-  top_loadings <- component_of_interest[component_of_interest > upper.q] %>% 
+  qs <- quantile(component_of_interest, thresh)
+  top_loadings <- component_of_interest[component_of_interest > qs[2] | 
+                                          component_of_interest < qs[1]] %>% 
     sort(decreasing = TRUE) 
   
   return(top_loadings)

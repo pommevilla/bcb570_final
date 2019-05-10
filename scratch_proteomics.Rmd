@@ -98,7 +98,8 @@ L1_L3.cor <- get_treatment_cor(proteomics, L1_L3.treatment_cols)
 
 ```{r}
 plot_cor_heatmap(L1_L3.cor, triangle = TRUE) + 
-  labs(title = "Protein-protein interactions: Leucine mutants")
+  labs(title = "Protein-protein interactions in the leucine mutant") + 
+  theme(legend.position = "none")
 ```
 
 
@@ -112,8 +113,7 @@ L1_L3.quantiles <- bootstrap_quantiles(L1_L3.boots, 0.10)
 Visualizing the distribution of the bootstrapped protein-protein correlation. 
 
 ```{r}
-plot_bootstrap(L1_L3.boots, L1_L3.quantiles) + labs(title = "Simulated correlation histogram: Leucine mutants",
-                                                    subtitle = "n = 1000")
+plot_bootstrap(L1_L3.boots, L1_L3.quantiles) + labs(title = "Simulated correlation histogram: Leucine mutant (B = 1000)", x = "Spearman correlation")
 ```
  
 
@@ -122,7 +122,7 @@ Updated heatmap showing only the significant correlations
 ```{r}
 L1_L3.cor <- threshold_cor_matrix(L1_L3.cor, L1_L3.quantiles)
 plot_cor_heatmap(L1_L3.cor, triangle = TRUE) + 
-  labs(title = "Protein-protein interactions: Leucine mutants")
+  labs(title = "Significant protein-protein interactions in the leucine mutant")
 ```
 This writes out the protein-protein interaction network for use with Cytoscape.
 
