@@ -355,13 +355,13 @@ proteins_of_interest
 ```
 
 ```{r}
-t <- data.frame(comm = 1:23, sigs) %>% select(-fails)
+t <- data.frame(comm = 1:23, sigs) %>% dplyr::select(-fails)
 t[is.na(t)] = 1
 y.labels = c("Average node contribution", "Density of correlation structure",
              "Concordance of node contribution", 
              "Concordance of weighted degree", 
              "Concordance of correlation structure", "Module coherence", "Average edge weight")
-(t.plot <- t %>% select(-passes) %>% melt(id.vars = "comm") %>% 
+(t.plot <- t %>% dplyr::select(-passes) %>% melt(id.vars = "comm") %>% 
   ggplot(aes(x = comm, y = variable, fill = value)) + 
   geom_tile(color = "white") + coord_equal() + 
   labs(x = "", y = "", fill = "p-value") + 

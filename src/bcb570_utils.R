@@ -104,11 +104,6 @@ prepare_network <- function(network) {
 }
 
 get_treatment_cor <- function(prot, treats, genes = "UNIQID", method = "pearson"){
-  # e.data <- prot %>%
-  #   column_to_rownames(var = genes) %>%
-    # dplyr::select(treats - 1) %>%
-  #   t()
-
   e.data <- get_expr_data(prot, treats, genes)
 
   cor.data <- cor(e.data, method = method)
@@ -129,10 +124,15 @@ plot_bootstrap <- function(boots, quantiles) {
               colour = "#BB0000", size = 3, nudge_x = -0.05)
 }
 
-scale_and_merge_prot_transc <- function(prot, trans){
-  prot[8:16] <- scale(prot[8:16])
-  trans[6:14] <- scale(trans[6:14])
-  return(merge(prot, trans, by.x = "UNIQID", by.y = "Unique_ID"))
+scale_and_merge_prot_transc <- function(p, t, p.treats = 8:16, t.treats = 6:14) {
+  prot[p.treats] <- scale(prot[p.treats])
+  trans[t.treats] <- scale(trans[t.treats])
+  pt_merged <- merge(prot, trans, by.x = "UNIQID", by.y = "Unique_ID") 
+  genotype_info <- pt_merged %>% 
+    dplyr::select(p.treats, t.treats + (dim(proteomics)[2] - 1)) %>% 
+    t()
+  colnames(genotype_info) <-pt_merged$UNIQID
+  return(genotype_info)
 }
 
 pca_nth_component_histogram <- function(pca, n, thresh = c(0.05, 0.95)){
@@ -155,4 +155,14 @@ get_top_loadings <- function(pca, component, thresh = c(0.05, 0.95)) {
     sort(decreasing = TRUE) 
   
   return(top_loadings)
+}
+
+plot_dd <- function(g){
+  g.dd <- data.frame(0:(length(degree_distribution(g)) - 1), 
+                     degree_distribution(g, cumulative = FALSE))
+  colnames(g.dd) <-c("k", "p_k")
+  ggplot(g.dd, aes(x = k, y = p_k)) + geom_bar(stat = "identity") +
+    labs(x = "Degree (k)", y = "Proportion of nodes of degree k (p(k))", title = "Degree distribution: k vs. p(k)", 
+         subtitle = paste("Graph:", deparse(substitute(g)))) +
+    theme(plot.title = element_text(hjust = 0.5), plot.subtitle = element_text(hjust = 0.5))
 }

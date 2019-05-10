@@ -81,9 +81,11 @@ pca.transcriptome
 plot(pca.transcriptome) + title(main="PCA Plot: Transcriptomics")
 ```
 
+
+
 ```{r}
 names(get_top_loadings(pca.transcriptome, 1)) %>% 
-  write.table(file = "test", row.names = FALSE, col.names = FALSE,
+  write.table(file = "transcriptome_comp1", row.names = FALSE, col.names = FALSE,
               sep = "\n", quote = FALSE)
 ```
 
@@ -94,20 +96,12 @@ Scaling numeric data in both the proteomic and transcriptomic datasets:
 
 
 ```{r}
-proteomic.transcriptomic.merged <-scale_and_merge_prot_transc(proteomics, transcriptomics)
-```
-
-
-
-```{r}
-prot_tran_genotypes<-t(cbind(proteomic.transcriptomic.merged[8:16],
-                             proteomic.transcriptomic.merged[21:29]))
-colnames(prot_tran_genotypes)<-proteomic.transcriptomic.merged$UNIQID
-pca.proteome_transcriptome <- pca(prot_tran_genotypes, ncomp = 10, center = TRUE, scale = TRUE)
+proteomic.transcriptomic.merged <- scale_and_merge_prot_transc(proteomics, transcriptomics)
+pca.proteome_transcriptome <- pca(proteomic.transcriptomic.merged, ncomp = 10, center = TRUE, scale = TRUE)
 
 pca.proteome_transcriptome
 
-plot(pca.proteome_transcriptome) + title(main="Protein and Transcriptomic PCA Plot")
+plot(pca.proteome_transcriptome) + title(main="PCA Plot: Proteomic and transcriptomic data")
 
 ```
 
@@ -119,7 +113,9 @@ pca_nth_component_histogram(pca.proteome_transcriptome, 1)
 ```
 
 ```{r}
-get_top_loadings(pca.proteome, 1) %>% names
+get_top_loadings(pca.proteome_transcriptome, 2) %>% names %>% 
+  write.table(file = "proteome_transcriptome.pca.comp_2", row.names = FALSE, col.names = FALSE,
+              sep = "\n", quote = FALSE)
 ```
 
 
@@ -127,9 +123,9 @@ get_top_loadings(pca.proteome, 1) %>% names
 ```{r}
 groups<-data.frame(genotypes=c("Histidine mutant", "Histidine mutant","Histidine mutant","Leucine mutant","Leucine mutant","Leucine mutant","WT","WT","WT","WT","WT","WT","Histidine mutant", "Histidine mutant","Histidine mutant","Leucine mutant","Leucine mutant","Leucine mutant") ,replicates=c("H1","H2","H3","L1","L2","L3","PROTOTROPH1","PROTOTROPH2","PROTOTROPH3"))
 
-plotIndiv(pca.proteome_transcriptome, comp = c(2,3), group = groups$genotypes,
+plotIndiv(pca.proteome_transcriptome, comp = c(1, 2), group = groups$genotypes,
           ind.names = rownames(prot_tran_genotypes),
-          legend = TRUE, title = 'Proteome and Transcriptome, PCA comp 2 - 3')
+          legend = TRUE, title = 'Proteome + Transcriptome PCA, comps 1 & 2')
 ```
 
 ```{r}
@@ -161,18 +157,14 @@ plotIndiv(pca.proteome_transcriptome_metabolome, comp = c(1,2), group = groups$g
 
 # sPLS Analysis
 ```{r}
-prot_trans.pls <- pls( prot_genotypes, trans_genotypes, ncomp = 6, mode = "regression")
 prot_trans.spls <- spls( prot_genotypes, trans_genotypes, ncomp = 6, keepX = c(20,20,20), keepY= c(10,10,10), mode = "regression")
-tune.pls <- perf(prot_trans.pls, validation = "Mfold", folds = 6, progressBar = FALSE, nrepeat = 50)
 tune.spls <- perf(prot_trans.spls, validation = "Mfold", folds = 6, progressBar = FALSE, nrepeat = 50)
 
 
-plot(tune.pls$Q2.total) + abline(h = 0.0975)
 
 
 plot(tune.spls$Q2.total) + abline(h = 0.0975)
 
-tune.pls$Q2.total
 tune.spls$Q2.total
 
 
