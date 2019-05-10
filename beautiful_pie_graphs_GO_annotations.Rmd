@@ -1,0 +1,115 @@
+---
+title: "making_pretty_pie_graphs"
+author: "Devin Molnau"
+date: "May 9, 2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(scales)
+library(ggforce)
+library(dplyr)
+```
+# Displaying GO annotations
+
+Using Slim Mapper GO Annotation to show the functions that are maintained or differentially expressed. They are graphically displayed as a pie chart using ggplot2. Due to the size of some of these GO annotations lists, the top ten annotation categories are displayed.  
+
+## Proteomic PC1 GO annotations
+ 
+```{r}
+prot_pc1_annot<-read.csv("proteome/GO_annotations_PC1_proteins.csv", header = TRUE, stringsAsFactors = FALSE)
+top_ten<-prot_pc1_annot[1:10,]
+p <- ggplot(top_ten,aes(x=1,y=top_ten$NUM_LIST_ANNOTATIONS,fill=top_ten$TERM))+
+  geom_bar(stat="identity", color = "black")+
+  coord_polar(theta='y')+ 
+  theme(axis.ticks=element_blank(), 
+        axis.text.y=element_blank(), 
+        axis.text.x=element_text(colour='black'), 
+        axis.title=element_blank()) +
+  labs(fill = "GO annotations", title="Proteomic PC1 GO annotations") +
+  theme(panel.background = element_blank())
+p
+```
+## Transcriptome GO annotations
+```{r}
+transcriptome_GO<-read.csv("transcriptomic_top_GO.csv",header = TRUE,stringsAsFactors = FALSE)
+head(transcriptome_GO)
+top_ten<-transcriptome_GO[1:10,]
+p <- ggplot(top_ten,aes(x=1,y=top_ten$NUM_LIST_ANNOTATIONS,fill=top_ten$TERM))+
+  geom_bar(stat="identity", color = "black")+
+  coord_polar(theta='y')+ 
+  theme(axis.ticks=element_blank(), 
+        axis.text.y=element_blank(), 
+        axis.text.x=element_text(colour='black'), 
+        axis.title=element_blank()) +
+  labs(fill = "GO annotations", title="Transcriptome GO annotations") +
+  theme(panel.background = element_blank())
+p
+```
+## L vs WT protein and transcriptome differential expression GO annotations
+```{r}
+prot_trans_GO<-read.csv("differential_expression/slimmapper_prot_trans_differential_expression_L_vs_WT.csv",header = TRUE,stringsAsFactors = FALSE)
+head(prot_trans_GO)
+top_ten<-prot_trans_GO[1:10,]
+p <- ggplot(top_ten,aes(x=1,y=top_ten$NUM_LIST_ANNOTATIONS,fill=top_ten$TERM))+
+  geom_bar(stat="identity", color = "black")+
+  coord_polar(theta='y')+ 
+  theme(axis.ticks=element_blank(), 
+        axis.text.y=element_blank(), 
+        axis.text.x=element_text(colour='black'), 
+        axis.title=element_blank()) +
+  labs(fill = "GO annotations", title="L vs WT protein and transcriptome differential expression GO annotations") +
+  theme(panel.background = element_blank())
+p
+```
+## PC1 protein and transcriptome seperation GO annotations
+```{r}
+prot_trans_comp1_GO<-read.csv("../my_work/GO_proteome_transcriptome_pca_comp1.csv",header = TRUE,stringsAsFactors = FALSE)
+head(prot_trans_comp1_GO)
+top_ten<-prot_trans_comp1_GO[1:10,]
+p <- ggplot(top_ten,aes(x=1,y=top_ten$NUM_LIST_ANNOTATIONS,fill=top_ten$TERM))+
+  geom_bar(stat="identity", color = "black")+
+  coord_polar(theta='y')+ 
+  theme(axis.ticks=element_blank(), 
+        axis.text.y=element_blank(), 
+        axis.text.x=element_text(colour='black'), 
+        axis.title=element_blank()) +
+  labs(fill = "GO annotations", title="PC1 protein and transcriptome seperation GO annotations") +
+  theme(panel.background = element_blank())
+p
+```
+## PC2 protein and transcriptome seperation GO annotations
+```{r}
+prot_trans_comp2_GO<-read.csv("../my_work/GO_proteome_transcriptome_pca_comp2.csv",header = TRUE,stringsAsFactors = FALSE)
+head(prot_trans_comp2_GO)
+top_ten<-prot_trans_comp2_GO[1:10,]
+p <- ggplot(top_ten,aes(x=1,y=top_ten$NUM_LIST_ANNOTATIONS,fill=top_ten$TERM))+
+  geom_bar(stat="identity", color = "black")+
+  coord_polar(theta='y')+ 
+  theme(axis.ticks=element_blank(), 
+        axis.text.y=element_blank(), 
+        axis.text.x=element_text(colour='black'), 
+        axis.title=element_blank()) +
+  labs(fill = "GO annotations", title="PC2 protein and transcriptome seperation GO annotations") +
+  theme(panel.background = element_blank())
+p
+```
+## Transcriptome Network Factors GO annotations
+```{r}
+trans_network_GO<-read.csv("../my_work/GO_transcriptomic_network_factors.csv",header = TRUE,stringsAsFactors = FALSE)
+head(trans_network_GO)
+top_ten<-trans_network_GO[1:8,]
+p <- ggplot(top_ten,aes(x=1,y=top_ten$NUM_LIST_ANNOTATIONS,fill=top_ten$TERM))+
+  geom_bar(stat="identity", color = "black")+
+  coord_polar(theta='y')+ 
+  theme(axis.ticks=element_blank(), 
+        axis.text.y=element_blank(), 
+        axis.text.x=element_text(colour='black'), 
+        axis.title=element_blank()) +
+  labs(fill = "GO annotations", title="Transcriptome Network Factors GO annotations") +
+  theme(panel.background = element_blank())
+p
+```
+

@@ -52,6 +52,7 @@ prot_data<-data.frame(Sample=1:9,Genotype=c("H","H","H","L","L","L","WT","WT","W
 prot_data
 prot_ddsFullCountTable<-DESeqDataSetFromMatrix(countData=prot_counts,colData=prot_data, design = ~ Genotype)
 prot_ddsFullCountTable$Genotype <- relevel( prot_ddsFullCountTable$Genotype, "WT" )
+prot_ddsFullCountTable<-estimateSizeFactors(prot_ddsFullCountTable)
 prot_diff_exp<-DESeq(prot_ddsFullCountTable)
 
 prot_diff_express_L_vs_WT<-results(prot_diff_exp, contrast = c("Genotype","L","WT"))
@@ -72,6 +73,9 @@ prot_diff_express_H_vs_L
 sum( prot_diff_express_L_vs_WT$padj < 0.1, na.rm=TRUE )
 prot_L_vs_WT_resSig <- prot_diff_express_L_vs_WT[ which(prot_diff_express_L_vs_WT$padj < 0.1 ), ]
 prot_L_vs_WT_resSig
+rld<-rlog(prot_L_vs_WT_resSig,fitType = "mean")
+?plotPCA
+plotPCA( rld, intgroup = c( "Genotype"))+labs(title="PCA of differentially expressed proteome, LEU2 vs WT")
 
 ```
 ### Histidine mutant vs WT significantly differentially expressed proteins
@@ -239,12 +243,13 @@ prot_L_vs_WT_resSig$entrez <- genemap$entrezgene[ idx ]
 prot_L_vs_WT_resSig$go_id <- genemap$go_id[ idx ]
 prot_L_vs_WT_resSig$uniprotswissprot<-genemap$uniprotswissprot[idx]
 
+
 head(prot_L_vs_WT_resSig)
 tail(prot_L_vs_WT_resSig)
 write.csv( as.data.frame(prot_L_vs_WT_resSig),
            file="data/differential_expression/prot_L_vs_WT_resSig_diff_expression.csv" )
 ```
-
+## Plots the differential expression of proteomic data
 ```{r}
 rld <- rlog( prot_ddsFullCountTable )
 par( mfrow = c( 1, 2 ) )
@@ -290,9 +295,11 @@ prot_trans_ddsFullCountTable$Genotype <- relevel( prot_trans_ddsFullCountTable$G
 prot_trans_ddsFullCountTable<-estimateSizeFactors(prot_trans_ddsFullCountTable)
 prot_trans_diff_exp<-DESeq(prot_trans_ddsFullCountTable, fitType = "mean")
 
+#?rlog
 rld <- rlog( prot_trans_ddsFullCountTable , fitType = "mean")
 ramp <- 1:3/3
-plotPCA( rld, intgroup = c( "Genotype") )
+#?plotPCA
+plotPCA( rld, intgroup = c( "Genotype"))+labs(title="PCA of Differentially expressed proteome and transcriptome, comp 1-2")
 ```
 
 #### Heatmap of merged dataset differential expression 
