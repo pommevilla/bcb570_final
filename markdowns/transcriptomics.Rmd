@@ -16,7 +16,7 @@ library(reshape2)
 library(scales)
 library(tidyverse)
 library(GENIE3)
-source("./src/bcb570_utils.R")
+source("../src/bcb570_utils.R")
 theme_set(theme_light())
 ```
 
@@ -25,14 +25,14 @@ theme_set(theme_light())
 Reading in data:
 
 ```{r}
-transcriptomics <- read.delim("./data/raw/Transcriptomics2.txt")
+transcriptomics <- read.delim("../data/raw/Transcriptomics2.txt")
 ```
 
 Loading in pre-generated GENIE3 adjacency matrix from transcriptomic data.
 
 
 ```{r}
-grn.T_H_P <- readRDS("./data/grn_mats/transcriptomics/t_PROTOTROPH1-PROTOTROPH2-PROTOTROPH3-H1-H2-H3-L1-L2-L3.rds")
+grn.T_H_P <- readRDS("../data/grn_mats/transcriptomics/t_PROTOTROPH1-PROTOTROPH2-PROTOTROPH3-H1-H2-H3-L1-L2-L3.rds")
 ```
 
 Making a network from the top 1000 strongest connections.

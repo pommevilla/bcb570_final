@@ -7,13 +7,6 @@ output: pdf_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-# if (!requireNamespace("BiocManager", quietly = TRUE))
-#     install.packages("BiocManager")
-# BiocManager::install("DESeq2")
-# BiocManager::install("biomaRt")
-# install.packages("checkmate")
-#install.packages("gplots")
-#install.packages("RColorBrewer")
 library( "gplots" )
 library( "RColorBrewer" )
 library(checkmate)
@@ -24,27 +17,22 @@ library(reshape2)
 library(dplyr)
 library(stringr)
 library(mixOmics)
-setwd("D:/Documents/BoxSync/Classes/BCB570/final\ project/bcb570_final/")
+library( "genefilter" )
+source("../src/bcb570_utils.R")
 ```
 
 ## Differential Expression Analysis
 
 Reading in the data. 
 ```{r}
-proteomics <- read.delim("./data/raw/Proteomics2.txt")
-metabolomics<-read.delim("./data/raw/Metabolomics2.txt")
-transcriptomics<-read.delim("./data/raw/Transcriptomics2.txt")
+proteomics <- read.delim("../data/raw/Proteomics2.txt")
+metabolomics<-read.delim("../data/raw/Metabolomics2.txt")
+transcriptomics<-read.delim("../data/raw/Transcriptomics2.txt")
 ```
 
 We are starting with count data. so we need to read in the data as count data into a DESeqDataSet object using the DESeq package. 
 
 ```{r}
-# prot_melted<-proteomics %>%
-#  select(2, 8:16) %>%
-#  melt(id.vars ="UNIQID") %>%
-#  separate(variable,c("genotype","replicate"),1)
-# colnames(prot_melted)<-c("UNIQID","Genotype","Replicate","Counts")
-
 prot_counts<-round((data.frame(proteomics[8:16])))
 rownames(prot_counts)<-proteomics$UNIQID
 
@@ -74,23 +62,24 @@ sum( prot_diff_express_L_vs_WT$padj < 0.1, na.rm=TRUE )
 prot_L_vs_WT_resSig <- prot_diff_express_L_vs_WT[ which(prot_diff_express_L_vs_WT$padj < 0.1 ), ]
 prot_L_vs_WT_resSig
 rld<-rlog(prot_L_vs_WT_resSig,fitType = "mean")
-?plotPCA
 plotPCA( rld, intgroup = c( "Genotype"))+labs(title="PCA of differentially expressed proteome, LEU2 vs WT")
 
 ```
+
 ### Histidine mutant vs WT significantly differentially expressed proteins
+
 ```{r}
 sum( prot_diff_express_H_vs_WT$padj < 0.1, na.rm=TRUE )
 prot_H_vs_WT_resSig <- prot_diff_express_H_vs_WT[ which(prot_diff_express_H_vs_WT$padj < 0.1 ), ]
-prot_H_vs_WT_resSig
 ```
 
 ### Histidine mutant vs Leucine mutant significantly expressed proteins
+
 ```{r}
 sum( prot_diff_express_H_vs_L$padj < 0.1, na.rm=TRUE )
 prot_H_vs_L_resSig <- prot_diff_express_H_vs_L[ which(prot_diff_express_H_vs_L$padj < 0.1 ), ]
-prot_H_vs_L_resSig
 ```
+
 ## Visualizing protein differential expression
 MA plots
 ```{r}
@@ -103,9 +92,10 @@ prot_H_vs_L_MAplot<-plotMA(prot_diff_express_H_vs_L,c(-1,1))
 Dispersion 
 ```{r}
 plotDispEsts(prot_diff_exp, ylim = c(1e-6, 1e1) )
-
 ```
+
 ## Independent filtering 
+
 ### Independent filtering of Histidine mutant vs wild type differential expression of proteins
 ```{r}
 # create bins using the quantile function
@@ -119,18 +109,16 @@ ratios <- tapply( prot_diff_express_H_vs_WT$pvalue, bins, function(p) mean( p < 
 # plot these ratios
 barplot(ratios, xlab="mean normalized count", ylab="ratio of small $p$ values")
 ```
+
 ## Adding Gene Names
 ### WT vs Histidine
+
 Adding gene names to wild-type vs histidine mutant differential protein expression analysis and outputting the results as a csv.
 ```{r}
 
 prot_diff_express_H_vs_WT$ensembl <- sapply( strsplit( rownames(prot_diff_express_H_vs_WT), split="\\+" ), "[", 1 )
-#prot_diff_express_H_vs_WT$ensembl
 
-#?useMart
 ensembl = useMart( "ensembl", dataset = "scerevisiae_gene_ensembl" )
-# ?getBM
-#listAttributes(ensembl)$name
 genemap <- getBM( attributes = c("ensembl_gene_id", "entrezgene", "go_id", "uniprotswissprot"),
                   filters = "ensembl_gene_id",
                   values = prot_diff_express_H_vs_WT$ensembl,
@@ -149,9 +137,7 @@ write.csv( as.data.frame(prot_diff_express_H_vs_WT),
 ### WT vs Leucine mutant 
 ```{r}
 prot_diff_express_L_vs_WT$ensembl <- sapply( strsplit( rownames(prot_diff_express_L_vs_WT), split="\\+" ), "[", 1 )
-#prot_diff_express_L_vs_WT$ensembl
 
-#ensembl = useMart( "ensembl", dataset = "scerevisiae_gene_ensembl" )
 genemap <- getBM( attributes = c("ensembl_gene_id", "entrezgene", "go_id", "uniprotswissprot"),
                   filters = "ensembl_gene_id",
                   values = prot_diff_express_L_vs_WT$ensembl,
@@ -161,17 +147,13 @@ prot_diff_express_L_vs_WT$entrez <- genemap$entrezgene[ idx ]
 prot_diff_express_L_vs_WT$go_id <- genemap$go_id[ idx ]
 prot_diff_express_L_vs_WT$uniprotswissprot<-genemap$uniprotswissprot[idx]
 
-#head(prot_diff_express_L_vs_WT)
-#tail(prot_diff_express_L_vs_WT)
 write.csv( as.data.frame(prot_diff_express_L_vs_WT),
-           file="data/differential_expression/prot_diff_expression_L_vs_WT.csv" )
+           file="../data/differential_expression/prot_diff_expression_L_vs_WT.csv" )
 ```
 ### Histidine mutant vs Leucine mutant differentially expressed proteins
 ```{r}
 prot_diff_express_H_vs_L$ensembl <- sapply( strsplit( rownames(prot_diff_express_H_vs_L), split="\\+" ), "[", 1 )
-#prot_diff_express_H_vs_L$ensembl
 
-#ensembl = useMart( "ensembl", dataset = "scerevisiae_gene_ensembl" )
 genemap <- getBM( attributes = c("ensembl_gene_id", "entrezgene", "go_id", "uniprotswissprot"),
                   filters = "ensembl_gene_id",
                   values = prot_diff_express_H_vs_L$ensembl,
@@ -184,7 +166,7 @@ prot_diff_express_H_vs_L$uniprotswissprot<-genemap$uniprotswissprot[idx]
 #head(prot_diff_express_H_vs_L)
 #tail(prot_diff_express_H_vs_L)
 write.csv( as.data.frame(prot_diff_express_H_vs_L),
-           file="data/differential_expression/prot_diff_expression_H_vs_L.csv" )
+           file="../data/differential_expression/prot_diff_expression_H_vs_L.csv" )
 ```
 
 #### Adding gene names to significant differentially expressed proteins
@@ -206,7 +188,7 @@ prot_H_vs_L_resSig$uniprotswissprot<-genemap$uniprotswissprot[idx]
 head(prot_H_vs_L_resSig)
 tail(prot_H_vs_L_resSig)
 write.csv( as.data.frame(prot_H_vs_L_resSig),
-           file="data/differential_expression/prot_H_vs_L_resSig_diff_expression.csv" )
+           file="../data/differential_expression/prot_H_vs_L_resSig_diff_expression.csv" )
 ```
 #### Adding gene names to Histidine and WT significantly differentially expressed proteins
 ```{r}
@@ -226,7 +208,7 @@ prot_H_vs_WT_resSig$uniprotswissprot<-genemap$uniprotswissprot[idx]
 head(prot_H_vs_WT_resSig)
 tail(prot_H_vs_WT_resSig)
 write.csv( as.data.frame(prot_H_vs_WT_resSig),
-           file="data/differential_expression/prot_H_vs_WT_resSig_diff_expression.csv" )
+           file="../data/differential_expression/prot_H_vs_WT_resSig_diff_expression.csv" )
 ```
 #### Adding gene names to Leucine mutant and WT significantly differentially expressed proteins
 ```{r}
@@ -247,7 +229,7 @@ prot_L_vs_WT_resSig$uniprotswissprot<-genemap$uniprotswissprot[idx]
 head(prot_L_vs_WT_resSig)
 tail(prot_L_vs_WT_resSig)
 write.csv( as.data.frame(prot_L_vs_WT_resSig),
-           file="data/differential_expression/prot_L_vs_WT_resSig_diff_expression.csv" )
+           file="../data/differential_expression/prot_L_vs_WT_resSig_diff_expression.csv" )
 ```
 ## Plots the differential expression of proteomic data
 ```{r}
@@ -282,29 +264,25 @@ plotPCA( rld, intgroup = c( "Genotype") )
 ### Calculate the differential expression of protein and transcriptome data
 ```{r}
 proteome_transcriptome<-merge(proteomics, transcriptomics, by.y="Unique_ID", by.x = "UNIQID")
-#proteome_transcriptome[21:29]<-scale(proteome_transcriptome[21:29])
-#proteome_transcriptome[8:16]<-scale(proteome_transcriptome[8:16])
 
 prot_trans_counts<-round((data.frame(proteome_transcriptome[8:16],proteome_transcriptome[21:29])))
 rownames(prot_trans_counts)<-proteome_transcriptome$UNIQID
 
 prot_trans_data<-data.frame(Sample=1:18,Genotype=c("H","H","H","L","L","L","WT","WT","WT","WT","WT","WT","H","H","H","L","L","L"), Replicates=c(1,2,3))
-prot_trans_data
 prot_trans_ddsFullCountTable<-DESeqDataSetFromMatrix(countData=prot_trans_counts,colData=prot_trans_data, design = ~ Genotype)
 prot_trans_ddsFullCountTable$Genotype <- relevel( prot_trans_ddsFullCountTable$Genotype, "WT" )
 prot_trans_ddsFullCountTable<-estimateSizeFactors(prot_trans_ddsFullCountTable)
 prot_trans_diff_exp<-DESeq(prot_trans_ddsFullCountTable, fitType = "mean")
 
-#?rlog
 rld <- rlog( prot_trans_ddsFullCountTable , fitType = "mean")
 ramp <- 1:3/3
-#?plotPCA
-plotPCA( rld, intgroup = c( "Genotype"))+labs(title="PCA of Differentially expressed proteome and transcriptome, comp 1-2")
+plotPCA( rld, intgroup = c( "Genotype"))+
+  labs(title="PCA of Differentially expressed proteome and transcriptome, comp 1-2")
 ```
 
 #### Heatmap of merged dataset differential expression 
 ```{r}
-library( "genefilter" )
+
 topVarGenes <- head( order( rowVars( assay(rld) ), decreasing=TRUE ), 35 )
 heatmap.2( assay(rld)[ topVarGenes, ], scale="row",
 trace="none", dendrogram="column",
@@ -315,13 +293,6 @@ col = colorRampPalette( rev(brewer.pal(9, "RdBu")) )(255))
 prot_trans_diff_express_L_vs_WT<-results(prot_trans_diff_exp, contrast = c("Genotype","L","WT"))
 prot_trans_diff_express_L_vs_WT
 mcols(prot_trans_diff_express_L_vs_WT, use.names=TRUE)
-
-#prot_trans_diff_express_H_vs_WT<-results(prot_trans_diff_exp, contrast = c("Genotype","H","WT"))
-#prot_trans_diff_express_H_vs_WT
-#mcols(prot_trans_diff_express_H_vs_WT)
-
-#prot_trans_diff_express_H_vs_L<-results(prot_trans_diff_exp,contrast=c("Genotype","H","L"))
-#prot_trans_diff_express_H_vs_L
 
 sum( prot_trans_diff_express_L_vs_WT$padj < 0.1, na.rm=TRUE )
 prot_trans_L_vs_WT_resSig <- prot_trans_diff_express_L_vs_WT[ which(prot_trans_diff_express_L_vs_WT$padj < 0.1 ), ]
@@ -338,10 +309,8 @@ prot_trans_L_vs_WT_resSig$entrez <- genemap$entrezgene[ idx ]
 prot_trans_L_vs_WT_resSig$go_id <- genemap$go_id[ idx ]
 prot_trans_L_vs_WT_resSig$uniprotswissprot<-genemap$uniprotswissprot[idx]
 
-#head(prot_trans_L_vs_WT_resSig)
-#tail(prot_trans_L_vs_WT_resSig)
 prot_trans_L_vs_WT_resSig
 write.csv( as.data.frame(prot_trans_L_vs_WT_resSig),
-           file="data/differential_expression/prot_trans_differential_expression_L_vs_WT.csv" )
+           file="../data/differential_expression/prot_trans_differential_expression_L_vs_WT.csv" )
 ```
 

@@ -26,7 +26,7 @@ library(GENIE3)
 `bcb570_utils.R` contains helper functions that we'll use here.
 
 ```{r}
-source('./src/bcb570_utils.R')
+source('../src/bcb570_utils.R')
 
 theme_set(theme_light())
 ```
@@ -37,7 +37,7 @@ theme_set(theme_light())
 Reads in the proteomics data as a dataframe.
 
 ```{r}
-proteomics <- read.delim("./data/raw/Proteomics2.txt")
+proteomics <- read.delim("../data/raw/Proteomics2.txt")
 ```
 
 
@@ -81,7 +81,7 @@ plot_cor_heatmap(H1_H3.cor, triangle = TRUE) +
 Set the diagonal to 0 so that they don't get graphed in the network (`diag = FALSE` argument isn't working in `graph_from_adjaceny_matrix` for some reason).
 
 ```{r}
-write.cor_to_edgelist(H1_H3.cor, "./data/grn_mats/prot_network.H.csv")
+write.cor_to_edgelist(H1_H3.cor, "../data/grn_mats/prot_network.H.csv")
 ```
 
 Creates a protein-protein interaction graph from the (modified) correlation matrix, removes nodes of degree 0, changes the size of each node to be proportional to its degree, and creates a separate attribute for the betweenness of the node.
@@ -127,7 +127,7 @@ plot_cor_heatmap(L1_L3.cor, triangle = TRUE) +
 This writes out the protein-protein interaction network for use with Cytoscape.
 
 ```{r}
-write.cor_to_edgelist(L1_L3.cor, "./data/grn_mats/prot_network.L.csv")
+write.cor_to_edgelist(L1_L3.cor, "../data/grn_mats/prot_network.L.csv")
 ```
 
 ## Wildtype
@@ -168,7 +168,7 @@ plot_cor_heatmap(WT.cor, triangle = TRUE) +
 ```
 
 ```{r}
-write.cor_to_edgelist(WT.cor, "./data/grn_mats/prot_network.WT.csv")
+write.cor_to_edgelist(WT.cor, "../data/grn_mats/prot_network.WT.csv")
 ```
 
 Creates a protein-protein interaction graph from the (modified) correlation matrix, removes nodes of degree 0, changes the size of each node to be proportional to its degree, and creates a separate attribute for the betweenness of the node.
@@ -215,7 +215,7 @@ plot_cor_heatmap(all.cor, triangle = TRUE) +
 This writes out the protein-protein interaction network for use with Cytoscape.
 
 ```{r}
-write.cor_to_edgelist(all.cor, "./data/grn_mats/prot_network.all.csv")
+write.cor_to_edgelist(all.cor, "../data/grn_mats/prot_network.all.csv")
 ```
 
 
@@ -252,8 +252,6 @@ plot(H.btwn_coms,
      vertex.size = V(H.g)$btwn * 0.001,
      layout = layout_nicely(H.g),
      edge.arrow.size = 0.1,
-     # vertex.color = graphCol,
-     # edge.color = ifelse(E(proteomics.g)$weight == 1, 'green', 'red'),
      )
 ```
 
@@ -276,8 +274,6 @@ plot(L.btwn_coms,
      layout = layout_nicely(L.g),
      edge.arrow.size = 0.1,
      rescale = T
-          # vertex.color = graphCol,
-     # edge.color = ifelse(E(proteomics.g)$weight == 1, 'green', 'red'),
      )
 ```
 
@@ -309,8 +305,6 @@ dim(WT.cor)
 ```
 
 ```{r}
-# L.adj <- as.matrix(get.adjacency(L.g))
-# WT.adj <- as.matrix(get.adjacency(WT.g))
 networks = list(cohort.1 = WT.cor, 
                 cohort.2 = L1_L3.cor)
 ```
@@ -338,6 +332,7 @@ ecoli.preservation <- modulePreservation(network = networks,
                                          nPerm = 5000,
                                          nThreads = 4)
 ```
+
 ```{r}
 sigs <- ecoli.preservation$p.values
 sigs = cbind(sigs, 
